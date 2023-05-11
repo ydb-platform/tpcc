@@ -107,15 +107,16 @@ public class ScriptRunner {
                     command = new StringBuffer();
                 }
                 String trimmedLine = line.trim();
-                line = line.replaceAll("\\-\\-.*$", ""); // remove comments in line;
 
-                if (trimmedLine.startsWith("--") || trimmedLine.startsWith("//")) {
-                    LOG.debug(trimmedLine);
-                } else if (trimmedLine.length() < 1) {
+                // FIXME: do we need it? It doesn't seem to be a problem to pass comments with request.
+                // Some databases might use comments to control request handling (e.g. YDB)
+                //line = line.replaceAll("\\-\\-.*$", ""); // remove comments in line;
+
+                if (trimmedLine.length() < 1) {
                     // Do nothing
                 } else if (trimmedLine.endsWith(getDelimiter())) {
                     command.append(line, 0, line.lastIndexOf(getDelimiter()));
-                    command.append(" ");
+                    command.append("\n");
 
                     try (Statement statement = conn.createStatement()) {
 
@@ -164,7 +165,9 @@ public class ScriptRunner {
                     }
                 } else {
                     command.append(line);
-                    command.append(" ");
+
+                    // need to use newline, because we left comments
+                    command.append("\n");
                 }
             }
             if (!autoCommit) {
