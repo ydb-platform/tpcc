@@ -23,7 +23,7 @@ import java.io.Serializable;
 public class Warehouse implements Serializable {
 
     public int w_id; // PRIMARY KEY
-    public float w_ytd;
+    public double w_ytd;
     public double w_tax;
     public String w_name;
     public String w_street_1;

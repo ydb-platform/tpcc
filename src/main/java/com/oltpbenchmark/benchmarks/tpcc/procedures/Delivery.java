@@ -121,7 +121,7 @@ public class Delivery extends TPCCProcedure {
 
             updateDeliveryDate(conn, w_id, d_id, no_o_id);
 
-            float orderLineTotal = getOrderLineTotal(conn, w_id, d_id, no_o_id);
+            double orderLineTotal = getOrderLineTotal(conn, w_id, d_id, no_o_id);
 
             updateBalanceAndDelivery(conn, w_id, d_id, customerId, orderLineTotal);
         }
@@ -247,7 +247,7 @@ public class Delivery extends TPCCProcedure {
         }
     }
 
-    private float getOrderLineTotal(Connection conn, int w_id, int d_id, int no_o_id) throws SQLException {
+    private double getOrderLineTotal(Connection conn, int w_id, int d_id, int no_o_id) throws SQLException {
         try (PreparedStatement delivSumOrderAmount = this.getPreparedStatement(conn, delivSumOrderAmountSQL)) {
             delivSumOrderAmount.setInt(1, no_o_id);
             delivSumOrderAmount.setInt(2, d_id);
@@ -259,15 +259,15 @@ public class Delivery extends TPCCProcedure {
                     throw new RuntimeException(msg);
                 }
 
-                return rs.getFloat("OL_TOTAL");
+                return rs.getDouble("OL_TOTAL");
             }
         }
     }
 
-    private void updateBalanceAndDelivery(Connection conn, int w_id, int d_id, int c_id, float orderLineTotal) throws SQLException {
+    private void updateBalanceAndDelivery(Connection conn, int w_id, int d_id, int c_id, double orderLineTotal) throws SQLException {
 
         try (PreparedStatement delivUpdateCustBalDelivCnt = this.getPreparedStatement(conn, delivUpdateCustBalDelivCntSQL)) {
-            delivUpdateCustBalDelivCnt.setBigDecimal(1, BigDecimal.valueOf(orderLineTotal));
+            delivUpdateCustBalDelivCnt.setDouble(1, orderLineTotal);
             delivUpdateCustBalDelivCnt.setInt(2, w_id);
             delivUpdateCustBalDelivCnt.setInt(3, d_id);
             delivUpdateCustBalDelivCnt.setInt(4, c_id);

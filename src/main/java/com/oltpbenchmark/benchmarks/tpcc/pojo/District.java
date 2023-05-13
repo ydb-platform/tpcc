@@ -25,8 +25,8 @@ public class District implements Serializable {
     public int d_id;
     public int d_w_id;
     public int d_next_o_id;
-    public float d_ytd;
-    public float d_tax;
+    public double d_ytd;
+    public double d_tax;
     public String d_name;
     public String d_street_1;
     public String d_street_2;

@@ -175,9 +175,9 @@ public class NewOrder extends TPCCProcedure {
                 int ol_quantity = orderQuantities[ol_number - 1];
 
                 // this may occasionally error and that's ok!
-                float i_price = getItemPrice(conn, ol_i_id);
+                double i_price = getItemPrice(conn, ol_i_id);
 
-                float ol_amount = ol_quantity * i_price;
+                double ol_amount = ol_quantity * i_price;
 
                 Stock s = getStock(conn, ol_supply_w_id, ol_i_id, ol_quantity);
 
@@ -269,7 +269,7 @@ public class NewOrder extends TPCCProcedure {
         }
     }
 
-    private float getItemPrice(Connection conn, int ol_i_id) throws SQLException {
+    private double getItemPrice(Connection conn, int ol_i_id) throws SQLException {
         try (PreparedStatement stmtGetItem = this.getPreparedStatement(conn, stmtGetItemSQL)) {
             stmtGetItem.setInt(1, ol_i_id);
             try (ResultSet rs = stmtGetItem.executeQuery()) {
@@ -278,7 +278,7 @@ public class NewOrder extends TPCCProcedure {
                     throw new UserAbortException("EXPECTED new order rollback: I_ID=" + ol_i_id + " not found!");
                 }
 
-                return rs.getFloat("I_PRICE");
+                return rs.getDouble("I_PRICE");
             }
         }
     }

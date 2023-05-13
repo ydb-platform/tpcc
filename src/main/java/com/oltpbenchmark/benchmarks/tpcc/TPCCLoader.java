@@ -146,10 +146,14 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
         return conn.prepareStatement(sql);
     }
 
-
     protected void loadItems(Connection conn, int itemCount) {
+        String sql = "" +
+            "declare $values as List<Struct<p1:Int32,p2:Utf8,p3:Double,p4:Utf8,p5:Int32>>;\n" +
+            "$mapper = ($row) -> (AsStruct($row.p1 as I_ID, $row.p2 as I_NAME, " +
+            "$row.p3 as I_PRICE, $row.p4 as I_DATA, $row.p5 as I_IM_ID));\n" +
+            "upsert into " + TPCCConstants.TABLENAME_ITEM + " select * from as_table(ListMap($values, $mapper));";
 
-        try (PreparedStatement itemPrepStmt = getInsertStatement(conn, TPCCConstants.TABLENAME_ITEM)) {
+        try (PreparedStatement itemPrepStmt = conn.prepareStatement(sql)) {
 
             int batchSize = 0;
             for (int i = 1; i <= itemCount; i++) {
@@ -175,11 +179,11 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                 item.i_im_id = TPCCUtil.randomNumber(1, 10000, benchmark.rng());
 
                 int idx = 1;
-                itemPrepStmt.setLong(idx++, item.i_id);
+                itemPrepStmt.setInt(idx++, item.i_id);
                 itemPrepStmt.setString(idx++, item.i_name);
                 itemPrepStmt.setDouble(idx++, item.i_price);
                 itemPrepStmt.setString(idx++, item.i_data);
-                itemPrepStmt.setLong(idx, item.i_im_id);
+                itemPrepStmt.setInt(idx, item.i_im_id);
                 itemPrepStmt.addBatch();
                 batchSize++;
 
@@ -204,8 +208,15 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
 
 
     protected void loadWarehouse(Connection conn, int w_id) {
+        String sql = "" +
+            "declare $values as List<Struct<p1:Int32,p2:Double,p3:Double,p4:Utf8," +
+            "p5:Utf8,p6:Utf8,p7:Utf8,p8:Utf8,p9:Utf8>>;\n" +
+            "$mapper = ($row) -> (AsStruct($row.p1 as W_ID, $row.p2 as W_YTD, $row.p3 as W_TAX, " +
+            "$row.p4 as W_NAME, $row.p5 as W_STREET_1, $row.p6 as W_STREET_2, " +
+            "$row.p7 as W_CITY, $row.p8 as W_STATE, $row.p9 as W_ZIP));\n" +
+            "upsert into " + TPCCConstants.TABLENAME_WAREHOUSE + " select * from as_table(ListMap($values, $mapper));";
 
-        try (PreparedStatement whsePrepStmt = getInsertStatement(conn, TPCCConstants.TABLENAME_WAREHOUSE)) {
+        try (PreparedStatement whsePrepStmt = conn.prepareStatement(sql)) {
             Warehouse warehouse = new Warehouse();
 
             warehouse.w_id = w_id;
@@ -221,7 +232,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
             warehouse.w_zip = "123456789";
 
             int idx = 1;
-            whsePrepStmt.setLong(idx++, warehouse.w_id);
+            whsePrepStmt.setInt(idx++, warehouse.w_id);
             whsePrepStmt.setDouble(idx++, warehouse.w_ytd);
             whsePrepStmt.setDouble(idx++, warehouse.w_tax);
             whsePrepStmt.setString(idx++, warehouse.w_name);
@@ -241,8 +252,18 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
     protected void loadStock(Connection conn, int w_id, int numItems) {
 
         int k = 0;
+        String sql = "" +
+            "declare $values as List<Struct<p1:Int32,p2:Int32,p3:Int32,p4:Double,p5:Int32," +
+            "p6:Int32,p7:Utf8,p8:Utf8,p9:Utf8,p10:Utf8,p11:Utf8,p12:Utf8,p13:Utf8," +
+            "p14:Utf8,p15:Utf8,p16:Utf8,p17:Utf8>>;\n" +
+            "$mapper = ($row) -> (AsStruct(" +
+            "$row.p1 as S_W_ID, $row.p2 as S_I_ID, $row.p3 as S_QUANTITY, $row.p4 as S_YTD, $row.p5 as S_ORDER_CNT, " +
+            "$row.p6 as S_REMOTE_CNT, $row.p7 as S_DATA, $row.p8 as S_DIST_01, $row.p9 as S_DIST_02, " +
+            "$row.p10 as S_DIST_03, $row.p11 as S_DIST_04, $row.p12 as S_DIST_05, $row.p13 as S_DIST_06, " +
+            "$row.p14 as S_DIST_07, $row.p15 as S_DIST_08, $row.p16 as S_DIST_09, $row.p17 as S_DIST_10));\n" +
+            "upsert into " + TPCCConstants.TABLENAME_STOCK + " select * from as_table(ListMap($values, $mapper));";
 
-        try (PreparedStatement stockPreparedStatement = getInsertStatement(conn, TPCCConstants.TABLENAME_STOCK)) {
+        try (PreparedStatement stockPreparedStatement = conn.prepareStatement(sql)) {
 
             for (int i = 1; i <= numItems; i++) {
                 Stock stock = new Stock();
@@ -268,12 +289,12 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                 }
 
                 int idx = 1;
-                stockPreparedStatement.setLong(idx++, stock.s_w_id);
-                stockPreparedStatement.setLong(idx++, stock.s_i_id);
-                stockPreparedStatement.setLong(idx++, stock.s_quantity);
+                stockPreparedStatement.setInt(idx++, stock.s_w_id);
+                stockPreparedStatement.setInt(idx++, stock.s_i_id);
+                stockPreparedStatement.setInt(idx++, stock.s_quantity);
                 stockPreparedStatement.setDouble(idx++, stock.s_ytd);
-                stockPreparedStatement.setLong(idx++, stock.s_order_cnt);
-                stockPreparedStatement.setLong(idx++, stock.s_remote_cnt);
+                stockPreparedStatement.setInt(idx++, stock.s_order_cnt);
+                stockPreparedStatement.setInt(idx++, stock.s_remote_cnt);
                 stockPreparedStatement.setString(idx++, stock.s_data);
                 stockPreparedStatement.setString(idx++, TPCCUtil.randomStr(24));
                 stockPreparedStatement.setString(idx++, TPCCUtil.randomStr(24));
@@ -305,8 +326,16 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
     }
 
     protected void loadDistricts(Connection conn, int w_id, int districtsPerWarehouse) {
+        String sql = "" +
+            "declare $values as List<Struct<p1:Int32,p2:Int32,p3:Double,p4:Double,p5:Int32," +
+            "p6:Utf8,p7:Utf8,p8:Utf8,p9:Utf8,p10:Utf8,p11:Utf8>>;\n" +
+            "$mapper = ($row) -> (AsStruct(" +
+            "$row.p1 as D_W_ID, $row.p2 as D_ID, $row.p3 as D_YTD, $row.p4 as D_TAX, $row.p5 as D_NEXT_O_ID, " +
+            "$row.p6 as D_NAME, $row.p7 as D_STREET_1, $row.p8 as D_STREET_2, $row.p9 as D_CITY, " +
+            "$row.p10 as D_STATE, $row.p11 as D_ZIP));\n" +
+            "upsert into " + TPCCConstants.TABLENAME_DISTRICT + " select * from as_table(ListMap($values, $mapper));";
 
-        try (PreparedStatement distPrepStmt = getInsertStatement(conn, TPCCConstants.TABLENAME_DISTRICT)) {
+        try (PreparedStatement distPrepStmt = conn.prepareStatement(sql)) {
 
             for (int d = 1; d <= districtsPerWarehouse; d++) {
                 District district = new District();
@@ -315,7 +344,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                 district.d_ytd = 30000;
 
                 // random within [0.0000 .. 0.2000]
-                district.d_tax = (float) ((TPCCUtil.randomNumber(0, 2000, benchmark.rng())) / 10000.0);
+                district.d_tax = (double) ((TPCCUtil.randomNumber(0, 2000, benchmark.rng())) / 10000.0);
 
                 district.d_next_o_id = TPCCConfig.configCustPerDist + 1;
                 district.d_name = TPCCUtil.randomStr(TPCCUtil.randomNumber(6, 10, benchmark.rng()));
@@ -326,11 +355,11 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                 district.d_zip = "123456789";
 
                 int idx = 1;
-                distPrepStmt.setLong(idx++, district.d_w_id);
-                distPrepStmt.setLong(idx++, district.d_id);
+                distPrepStmt.setInt(idx++, district.d_w_id);
+                distPrepStmt.setInt(idx++, district.d_id);
                 distPrepStmt.setDouble(idx++, district.d_ytd);
                 distPrepStmt.setDouble(idx++, district.d_tax);
-                distPrepStmt.setLong(idx++, district.d_next_o_id);
+                distPrepStmt.setInt(idx++, district.d_next_o_id);
                 distPrepStmt.setString(idx++, district.d_name);
                 distPrepStmt.setString(idx++, district.d_street_1);
                 distPrepStmt.setString(idx++, district.d_street_2);
@@ -350,7 +379,20 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
 
         int k = 0;
 
-        try (PreparedStatement custPrepStmt = getInsertStatement(conn, TPCCConstants.TABLENAME_CUSTOMER)) {
+        String sql = "" +
+            "declare $values as List<Struct<p1:Int32,p2:Int32,p3:Int32,p4:Double,p5:Utf8," +
+            "p6:Utf8,p7:Utf8,p8:Double,p9:Double,p10:Double,p11:Int32,p12:Int32,p13:Utf8," +
+            "p14:Utf8,p15:Utf8,p16:Utf8,p17:Utf8,p18:Utf8,p19:Timestamp,p20:Utf8,p21:Utf8>>;\n" +
+            "$mapper = ($row) -> (AsStruct(" +
+            "$row.p1 as C_W_ID, $row.p2 as C_D_ID, $row.p3 as C_ID, $row.p4 as C_DISCOUNT, $row.p5 as C_CREDIT, " +
+            "$row.p6 as C_LAST, $row.p7 as C_FIRST, $row.p8 as C_CREDIT_LIM, $row.p9 as C_BALANCE, " +
+            "$row.p10 as C_YTD_PAYMENT, $row.p11 as C_PAYMENT_CNT, $row.p12 as C_DELIVERY_CNT, " +
+            "$row.p13 as C_STREET_1, $row.p14 as C_STREET_2, $row.p15 as C_CITY, $row.p16 as C_STATE, " +
+            "$row.p17 as C_ZIP, $row.p18 as C_PHONE, $row.p19 as C_SINCE, " +
+            "$row.p20 as C_MIDDLE, $row.p21 as C_DATA));\n" +
+            "upsert into " + TPCCConstants.TABLENAME_CUSTOMER + " select * from as_table(ListMap($values, $mapper));";
+
+        try (PreparedStatement custPrepStmt = conn.prepareStatement(sql)) {
 
             for (int d = 1; d <= districtsPerWarehouse; d++) {
                 for (int c = 1; c <= customersPerDistrict; c++) {
@@ -362,7 +404,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                     customer.c_w_id = w_id;
 
                     // discount is random between [0.0000 ... 0.5000]
-                    customer.c_discount = (float) (TPCCUtil.randomNumber(1, 5000, benchmark.rng()) / 10000.0);
+                    customer.c_discount = (double) (TPCCUtil.randomNumber(1, 5000, benchmark.rng()) / 10000.0);
 
                     if (TPCCUtil.randomNumber(1, 100, benchmark.rng()) <= 10) {
                         customer.c_credit = "BC"; // 10% Bad Credit
@@ -394,9 +436,9 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                     customer.c_data = TPCCUtil.randomStr(TPCCUtil.randomNumber(300, 500, benchmark.rng()));
 
                     int idx = 1;
-                    custPrepStmt.setLong(idx++, customer.c_w_id);
-                    custPrepStmt.setLong(idx++, customer.c_d_id);
-                    custPrepStmt.setLong(idx++, customer.c_id);
+                    custPrepStmt.setInt(idx++, customer.c_w_id);
+                    custPrepStmt.setInt(idx++, customer.c_d_id);
+                    custPrepStmt.setInt(idx++, customer.c_id);
                     custPrepStmt.setDouble(idx++, customer.c_discount);
                     custPrepStmt.setString(idx++, customer.c_credit);
                     custPrepStmt.setString(idx++, customer.c_last);
@@ -404,8 +446,8 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                     custPrepStmt.setDouble(idx++, customer.c_credit_lim);
                     custPrepStmt.setDouble(idx++, customer.c_balance);
                     custPrepStmt.setDouble(idx++, customer.c_ytd_payment);
-                    custPrepStmt.setLong(idx++, customer.c_payment_cnt);
-                    custPrepStmt.setLong(idx++, customer.c_delivery_cnt);
+                    custPrepStmt.setInt(idx++, customer.c_payment_cnt);
+                    custPrepStmt.setInt(idx++, customer.c_delivery_cnt);
                     custPrepStmt.setString(idx++, customer.c_street_1);
                     custPrepStmt.setString(idx++, customer.c_street_2);
                     custPrepStmt.setString(idx++, customer.c_city);
@@ -438,8 +480,14 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
     protected void loadCustomerHistory(Connection conn, int w_id, int districtsPerWarehouse, int customersPerDistrict) {
 
         int k = 0;
+        String sql = "" +
+            "declare $values as List<Struct<p1:Int32,p2:Int32,p3:Int32,p4:Int32," +
+            "p5:Int32,p6:Timestamp,p7:Double,p8:Utf8>>;\n" +
+            "$mapper = ($row) -> (AsStruct($row.p1 as H_C_ID, $row.p2 as H_C_D_ID, $row.p3 as H_C_W_ID, " +
+            "$row.p4 as H_D_ID, $row.p5 as H_W_ID, $row.p6 as H_DATE, $row.p7 as H_AMOUNT, $row.p8 as H_DATA));\n" +
+            "upsert into " + TPCCConstants.TABLENAME_HISTORY + " select * from as_table(ListMap($values, $mapper));";
 
-        try (PreparedStatement histPrepStmt = getInsertStatement(conn, TPCCConstants.TABLENAME_HISTORY)) {
+        try (PreparedStatement histPrepStmt = conn.prepareStatement(sql)) {
 
             for (int d = 1; d <= districtsPerWarehouse; d++) {
                 for (int c = 1; c <= customersPerDistrict; c++) {
@@ -488,8 +536,15 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
     protected void loadOpenOrders(Connection conn, int w_id, int districtsPerWarehouse, int customersPerDistrict) {
 
         int k = 0;
+        String sql = "" +
+            "declare $values as List<Struct<p1:Int32,p2:Int32,p3:Int32,p4:Int32,p5:Int32," +
+            "p6:Int32,p7:Int32,p8:Timestamp>>;\n" +
+            "$mapper = ($row) -> (AsStruct($row.p1 as O_W_ID, $row.p2 as O_D_ID, $row.p3 as O_ID, " +
+            "$row.p4 as O_C_ID, $row.p5 as O_CARRIER_ID, " +
+            "$row.p6 as O_OL_CNT, $row.p7 as O_ALL_LOCAL, $row.p8 as O_ENTRY_D));\n" +
+            "upsert into " + TPCCConstants.TABLENAME_OPENORDER + " select * from as_table(ListMap($values, $mapper));";
 
-        try (PreparedStatement openOrderStatement = getInsertStatement(conn, TPCCConstants.TABLENAME_OPENORDER)) {
+        try (PreparedStatement openOrderStatement = conn.prepareStatement(sql)) {
 
             for (int d = 1; d <= districtsPerWarehouse; d++) {
                 // TPC-C 4.3.3.1: o_c_id must be a permutation of [1, 3000]
@@ -520,7 +575,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                     if (oorder.o_id < FIRST_UNPROCESSED_O_ID) {
                         oorder.o_carrier_id = TPCCUtil.randomNumber(1, 10, benchmark.rng());
                     } else {
-                        oorder.o_carrier_id = null;
+                        oorder.o_carrier_id = 0;
                     }
                     oorder.o_ol_cnt = getRandomCount(w_id, c, d);
                     oorder.o_all_local = 1;
@@ -576,8 +631,12 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
     protected void loadNewOrders(Connection conn, int w_id, int districtsPerWarehouse, int customersPerDistrict) {
 
         int k = 0;
+        String sql = "" +
+            "declare $values as List<Struct<p1:Int32,p2:Int32,p3:Int32>>;\n" +
+            "$mapper = ($row) -> (AsStruct($row.p1 as NO_W_ID, $row.p2 as NO_D_ID, $row.p3 as NO_O_ID));\n" +
+            "upsert into " + TPCCConstants.TABLENAME_NEWORDER + " select * from as_table(ListMap($values, $mapper));";
 
-        try (PreparedStatement newOrderStatement = getInsertStatement(conn, TPCCConstants.TABLENAME_NEWORDER)) {
+        try (PreparedStatement newOrderStatement = conn.prepareStatement(sql)) {
 
             for (int d = 1; d <= districtsPerWarehouse; d++) {
 
@@ -622,8 +681,16 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
     protected void loadOrderLines(Connection conn, int w_id, int districtsPerWarehouse, int customersPerDistrict) {
 
         int k = 0;
+        String sql = "" +
+            "declare $values as List<Struct<p1:Int32,p2:Int32,p3:Int32,p4:Int32,p5:Int32," +
+            "p6:Timestamp,p7:Double,p8:Int32,p9:Double,p10:Utf8>>;\n" +
+            "$mapper = ($row) -> (AsStruct(" +
+            "$row.p1 as OL_W_ID, $row.p2 as OL_D_ID, $row.p3 as OL_O_ID, $row.p4 as OL_NUMBER, $row.p5 as OL_I_ID, " +
+            "$row.p6 as OL_DELIVERY_D, $row.p7 as OL_AMOUNT, $row.p8 as OL_SUPPLY_W_ID, $row.p9 as OL_QUANTITY, " +
+            "$row.p10 as OL_DIST_INFO));\n" +
+            "upsert into " + TPCCConstants.TABLENAME_ORDERLINE + " select * from as_table(ListMap($values, $mapper));";
 
-        try (PreparedStatement orderLineStatement = getInsertStatement(conn, TPCCConstants.TABLENAME_ORDERLINE)) {
+        try (PreparedStatement orderLineStatement = conn.prepareStatement(sql)) {
 
             for (int d = 1; d <= districtsPerWarehouse; d++) {
 
@@ -642,9 +709,9 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                             order_line.ol_delivery_d = new Timestamp(System.currentTimeMillis());
                             order_line.ol_amount = 0;
                         } else {
-                            order_line.ol_delivery_d = null;
+                            order_line.ol_delivery_d = new Timestamp(0);
                             // random within [0.01 .. 9,999.99]
-                            order_line.ol_amount = (float) (TPCCUtil.randomNumber(1, 999999, benchmark.rng()) / 100.0);
+                            order_line.ol_amount = (TPCCUtil.randomNumber(1, 999999, benchmark.rng()) / 100.0);
                         }
                         order_line.ol_supply_w_id = order_line.ol_w_id;
                         order_line.ol_quantity = 5;
@@ -655,14 +722,10 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                         orderLineStatement.setInt(idx++, order_line.ol_d_id);
                         orderLineStatement.setInt(idx++, order_line.ol_o_id);
                         orderLineStatement.setInt(idx++, order_line.ol_number);
-                        orderLineStatement.setLong(idx++, order_line.ol_i_id);
-                        if (order_line.ol_delivery_d != null) {
-                            orderLineStatement.setTimestamp(idx++, order_line.ol_delivery_d);
-                        } else {
-                            orderLineStatement.setNull(idx++, 0);
-                        }
+                        orderLineStatement.setInt(idx++, order_line.ol_i_id);
+                        orderLineStatement.setTimestamp(idx++, order_line.ol_delivery_d);
                         orderLineStatement.setDouble(idx++, order_line.ol_amount);
-                        orderLineStatement.setLong(idx++, order_line.ol_supply_w_id);
+                        orderLineStatement.setInt(idx++, order_line.ol_supply_w_id);
                         orderLineStatement.setDouble(idx++, order_line.ol_quantity);
                         orderLineStatement.setString(idx, order_line.ol_dist_info);
                         orderLineStatement.addBatch();

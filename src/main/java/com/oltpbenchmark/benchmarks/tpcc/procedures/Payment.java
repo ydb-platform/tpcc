@@ -41,7 +41,7 @@ public class Payment extends TPCCProcedure {
     """
         UPDATE %s
            SET W_YTD = W_YTD + ?
-         WHERE W_ID = ? 
+         WHERE W_ID = ?
     """.formatted(TPCCConstants.TABLENAME_WAREHOUSE));
 
     public SQLStmt payGetWhseSQL = new SQLStmt(
@@ -137,11 +137,7 @@ public class Payment extends TPCCProcedure {
 
         updateWarehouse(conn, w_id, paymentAmount);
 
-        Warehouse w = getWarehouse(conn, w_id);
-
         updateDistrict(conn, w_id, districtID, paymentAmount);
-
-        District d = getDistrict(conn, w_id, districtID);
 
         int x = TPCCUtil.randomNumber(1, 100, gen);
 
@@ -271,9 +267,9 @@ public class Payment extends TPCCProcedure {
 
     }
 
-    private void updateWarehouse(Connection conn, int w_id, float paymentAmount) throws SQLException {
+    private void updateWarehouse(Connection conn, int w_id, double paymentAmount) throws SQLException {
         try (PreparedStatement payUpdateWhse = this.getPreparedStatement(conn, payUpdateWhseSQL)) {
-            payUpdateWhse.setBigDecimal(1, BigDecimal.valueOf(paymentAmount));
+            payUpdateWhse.setDouble(1, paymentAmount);
             payUpdateWhse.setInt(2, w_id);
             // MySQL reports deadlocks due to lock upgrades:
             // t1: read w_id = x; t2: update w_id = x; t1 update w_id = x
@@ -306,7 +302,7 @@ public class Payment extends TPCCProcedure {
         }
     }
 
-    private Customer getCustomer(Connection conn, Random gen, int customerDistrictID, int customerWarehouseID, float paymentAmount) throws SQLException {
+    private Customer getCustomer(Connection conn, Random gen, int customerDistrictID, int customerWarehouseID, double paymentAmount) throws SQLException {
         int y = TPCCUtil.randomNumber(1, 100, gen);
 
         Customer c;
@@ -326,9 +322,9 @@ public class Payment extends TPCCProcedure {
         return c;
     }
 
-    private void updateDistrict(Connection conn, int w_id, int districtID, float paymentAmount) throws SQLException {
+    private void updateDistrict(Connection conn, int w_id, int districtID, double paymentAmount) throws SQLException {
         try (PreparedStatement payUpdateDist = this.getPreparedStatement(conn, payUpdateDistSQL)) {
-            payUpdateDist.setBigDecimal(1, BigDecimal.valueOf(paymentAmount));
+            payUpdateDist.setDouble(1, paymentAmount);
             payUpdateDist.setInt(2, w_id);
             payUpdateDist.setInt(3, districtID);
 
@@ -363,7 +359,7 @@ public class Payment extends TPCCProcedure {
         }
     }
 
-    private String getCData(Connection conn, int w_id, int districtID, int customerDistrictID, int customerWarehouseID, float paymentAmount, Customer c) throws SQLException {
+    private String getCData(Connection conn, int w_id, int districtID, int customerDistrictID, int customerWarehouseID, double paymentAmount, Customer c) throws SQLException {
 
         try (PreparedStatement payGetCustCdata = this.getPreparedStatement(conn, payGetCustCdataSQL)) {
             String c_data;
@@ -423,7 +419,7 @@ public class Payment extends TPCCProcedure {
         }
     }
 
-    private void insertHistory(Connection conn, int w_id, int districtID, int customerDistrictID, int customerWarehouseID, float paymentAmount, String w_name, String d_name, Customer c) throws SQLException {
+    private void insertHistory(Connection conn, int w_id, int districtID, int customerDistrictID, int customerWarehouseID, double paymentAmount, String w_name, String d_name, Customer c) throws SQLException {
         if (w_name.length() > 10) {
             w_name = w_name.substring(0, 10);
         }

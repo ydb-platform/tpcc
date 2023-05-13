@@ -27,7 +27,7 @@ public class Stock implements Serializable {
     public int s_order_cnt;
     public int s_remote_cnt;
     public int s_quantity;
-    public float s_ytd;
+    public double s_ytd;
     public String s_data;
     public String s_dist_01;
     public String s_dist_02;
