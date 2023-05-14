@@ -17,17 +17,22 @@
 
 package com.oltpbenchmark.benchmarks.tpcc.procedures;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.Random;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.oltpbenchmark.api.SQLStmt;
 import com.oltpbenchmark.benchmarks.tpcc.TPCCConfig;
 import com.oltpbenchmark.benchmarks.tpcc.TPCCConstants;
 import com.oltpbenchmark.benchmarks.tpcc.TPCCUtil;
 import com.oltpbenchmark.benchmarks.tpcc.TPCCWorker;
 import com.oltpbenchmark.benchmarks.tpcc.pojo.Stock;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.sql.*;
-import java.util.Random;
 
 public class NewOrder extends TPCCProcedure {
 
@@ -112,8 +117,6 @@ public class NewOrder extends TPCCProcedure {
          VALUES (?,?,?,?,?,?,?,?,?)
     """.formatted(TPCCConstants.TABLENAME_ORDERLINE));
 
-
-
     public void run(Connection conn, Random gen, int terminalWarehouseID, int numWarehouses, int terminalDistrictLowerID, int terminalDistrictUpperID, TPCCWorker w) throws SQLException {
 
         int districtID = TPCCUtil.randomNumber(terminalDistrictLowerID, terminalDistrictUpperID, gen);
@@ -166,8 +169,27 @@ public class NewOrder extends TPCCProcedure {
 
         insertNewOrder(conn, w_id, d_id, d_next_o_id);
 
-        try (PreparedStatement stmtUpdateStock = this.getPreparedStatement(conn, stmtUpdateStockSQL);
-             PreparedStatement stmtInsertOrderLine = this.getPreparedStatement(conn, stmtInsertOrderLineSQL)) {
+        // TODO: insert VS upsert?
+
+        String odreLinesql = "" +
+            "declare $values as List<Struct<p1:Int32,p2:Int32,p3:Int32,p4:Int32,p5:Int32," +
+            "p6:Timestamp,p7:Double,p8:Int32,p9:Double,p10:Utf8>>;\n" +
+            "$mapper = ($row) -> (AsStruct(" +
+            "$row.p1 as OL_W_ID, $row.p2 as OL_D_ID, $row.p3 as OL_O_ID, $row.p4 as OL_NUMBER, $row.p5 as OL_I_ID, " +
+            "$row.p6 as OL_DELIVERY_D, $row.p7 as OL_AMOUNT, $row.p8 as OL_SUPPLY_W_ID, $row.p9 as OL_QUANTITY, " +
+            "$row.p10 as OL_DIST_INFO));\n" +
+            "upsert into " + TPCCConstants.TABLENAME_ORDERLINE + " select * from as_table(ListMap($values, $mapper));";
+
+        String stockSql = "" +
+            "declare $values as List<Struct<p1:Int32,p2:Int32,p3:Int32,p4:Double,p5:Int32,p6:Int32>>;\n" +
+            "$mapper = ($row) -> (AsStruct(" +
+            "$row.p1 as S_W_ID, $row.p2 as S_I_ID, $row.p3 as S_QUANTITY, " +
+            "$row.p4 as S_YTD, $row.p5 as S_ORDER_CNT, " +
+            "$row.p6 as S_REMOTE_CNT));\n" +
+            "upsert into " + TPCCConstants.TABLENAME_STOCK + " select * from as_table(ListMap($values, $mapper));";
+
+        try (PreparedStatement stmtUpdateStock = conn.prepareStatement(stockSql);
+             PreparedStatement stmtInsertOrderLine = conn.prepareStatement(odreLinesql)) {
 
             for (int ol_number = 1; ol_number <= o_ol_cnt; ol_number++) {
                 int ol_supply_w_id = supplierWarehouseIDs[ol_number - 1];
@@ -183,15 +205,17 @@ public class NewOrder extends TPCCProcedure {
 
                 String ol_dist_info = getDistInfo(d_id, s);
 
-                stmtInsertOrderLine.setInt(1, d_next_o_id);
-                stmtInsertOrderLine.setInt(2, d_id);
-                stmtInsertOrderLine.setInt(3, w_id);
-                stmtInsertOrderLine.setInt(4, ol_number);
-                stmtInsertOrderLine.setInt(5, ol_i_id);
-                stmtInsertOrderLine.setInt(6, ol_supply_w_id);
-                stmtInsertOrderLine.setInt(7, ol_quantity);
-                stmtInsertOrderLine.setDouble(8, ol_amount);
-                stmtInsertOrderLine.setString(9, ol_dist_info);
+                int idx = 1;
+                stmtInsertOrderLine.setInt(idx++, w_id);
+                stmtInsertOrderLine.setInt(idx++, d_id);
+                stmtInsertOrderLine.setInt(idx++, d_next_o_id);
+                stmtInsertOrderLine.setInt(idx++, ol_number);
+                stmtInsertOrderLine.setInt(idx++, ol_i_id);
+                stmtInsertOrderLine.setTimestamp(idx++, new Timestamp(System.currentTimeMillis()));
+                stmtInsertOrderLine.setDouble(idx++, ol_amount);
+                stmtInsertOrderLine.setInt(idx++, ol_supply_w_id);
+                stmtInsertOrderLine.setInt(idx++, ol_quantity);
+                stmtInsertOrderLine.setString(idx, ol_dist_info);
                 stmtInsertOrderLine.addBatch();
 
                 int s_remote_cnt_increment;
@@ -202,13 +226,14 @@ public class NewOrder extends TPCCProcedure {
                     s_remote_cnt_increment = 1;
                 }
 
-                stmtUpdateStock.setInt(1, s.s_quantity);
-                stmtUpdateStock.setInt(2, ol_quantity);
-                stmtUpdateStock.setInt(3, s_remote_cnt_increment);
-                stmtUpdateStock.setInt(4, ol_i_id);
-                stmtUpdateStock.setInt(5, ol_supply_w_id);
+                idx = 1;
+                stmtUpdateStock.setInt(idx++, s.s_w_id);
+                stmtUpdateStock.setInt(idx++, s.s_i_id);
+                stmtUpdateStock.setInt(idx++, s.s_quantity);
+                stmtUpdateStock.setDouble(idx++, s.s_ytd + ol_quantity);
+                stmtUpdateStock.setInt(idx++, s.s_order_cnt + 1);
+                stmtUpdateStock.setInt(idx++, s.s_remote_cnt + s_remote_cnt_increment);
                 stmtUpdateStock.addBatch();
-
             }
 
             stmtInsertOrderLine.executeBatch();
