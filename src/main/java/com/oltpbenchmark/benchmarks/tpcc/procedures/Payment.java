@@ -113,8 +113,8 @@ public class Payment extends TPCCProcedure {
     public SQLStmt payInsertHistSQL = new SQLStmt(
     """
         INSERT INTO %s
-         (H_C_D_ID, H_C_W_ID, H_C_ID, H_D_ID, H_W_ID, H_DATE, H_AMOUNT, H_DATA)
-         VALUES (?,?,?,?,?,?,?,?)
+         (H_C_D_ID, H_C_W_ID, H_C_ID, H_D_ID, H_W_ID, H_DATE, H_AMOUNT, H_DATA, H_C_NANO_TS)
+         VALUES (?,?,?,?,?,?,?,?,?)
     """.formatted(TPCCConstants.TABLENAME_HISTORY));
 
     public SQLStmt customerByNameSQL = new SQLStmt(
@@ -440,6 +440,7 @@ public class Payment extends TPCCProcedure {
             payInsertHist.setTimestamp(6, new Timestamp(System.currentTimeMillis()));
             payInsertHist.setDouble(7, paymentAmount);
             payInsertHist.setString(8, h_data);
+            payInsertHist.setLong(9, System.nanoTime());
             payInsertHist.executeUpdate();
         }
     }

@@ -89,16 +89,17 @@ CREATE TABLE customer (
 
 --jdbc:SCHEME
 CREATE TABLE history (
-    H_C_ID   Int32           NOT NULL,
-    H_C_D_ID Int32,
-    H_C_W_ID Int32,
-    H_D_ID   Int32,
-    H_W_ID   Int32,
-    H_DATE   Timestamp,
-    H_AMOUNT Double,
-    H_DATA   Utf8,
+    H_C_ID      Int32,
+    H_C_D_ID    Int32,
+    H_C_W_ID    Int32,
+    H_D_ID      Int32,
+    H_W_ID      Int32,
+    H_DATE      Timestamp,
+    H_AMOUNT    Double,
+    H_DATA      Utf8,
+    H_C_NANO_TS Int64        NOT NULL,
 
-    PRIMARY KEY (H_C_ID)
+    PRIMARY KEY (H_C_NANO_TS)
 );
 
 --jdbc:SCHEME

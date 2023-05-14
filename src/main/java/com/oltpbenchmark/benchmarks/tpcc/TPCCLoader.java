@@ -482,9 +482,10 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
         int k = 0;
         String sql = "" +
             "declare $values as List<Struct<p1:Int32,p2:Int32,p3:Int32,p4:Int32," +
-            "p5:Int32,p6:Timestamp,p7:Double,p8:Utf8>>;\n" +
+            "p5:Int32,p6:Timestamp,p7:Double,p8:Utf8,p9:Int64>>;\n" +
             "$mapper = ($row) -> (AsStruct($row.p1 as H_C_ID, $row.p2 as H_C_D_ID, $row.p3 as H_C_W_ID, " +
-            "$row.p4 as H_D_ID, $row.p5 as H_W_ID, $row.p6 as H_DATE, $row.p7 as H_AMOUNT, $row.p8 as H_DATA));\n" +
+            "$row.p4 as H_D_ID, $row.p5 as H_W_ID, $row.p6 as H_DATE, $row.p7 as H_AMOUNT, "+
+            "$row.p8 as H_DATA, $row.p9 as H_C_NANO_TS));\n" +
             "upsert into " + TPCCConstants.TABLENAME_HISTORY + " select * from as_table(ListMap($values, $mapper));";
 
         try (PreparedStatement histPrepStmt = conn.prepareStatement(sql)) {
@@ -512,7 +513,8 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                     histPrepStmt.setInt(idx++, history.h_w_id);
                     histPrepStmt.setTimestamp(idx++, history.h_date);
                     histPrepStmt.setDouble(idx++, history.h_amount);
-                    histPrepStmt.setString(idx, history.h_data);
+                    histPrepStmt.setString(idx++, history.h_data);
+                    histPrepStmt.setLong(idx, System.nanoTime());
                     histPrepStmt.addBatch();
 
                     k++;
