@@ -133,7 +133,10 @@ public class Payment extends TPCCProcedure {
 
         int districtID = TPCCUtil.randomNumber(terminalDistrictLowerID, terminalDistrictUpperID, gen);
 
-        float paymentAmount = (float) (TPCCUtil.randomNumber(100, 500000, gen) / 100.0);
+        Warehouse w = getWarehouse(conn, w_id);
+        District d = getDistrict(conn, w_id, districtID);
+
+        double paymentAmount = (double) (TPCCUtil.randomNumber(100, 500000, gen) / 100.0);
 
         updateWarehouse(conn, w_id, paymentAmount);
 
