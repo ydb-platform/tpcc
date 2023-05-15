@@ -119,9 +119,9 @@ public class Delivery extends TPCCProcedure {
 
             updateCarrierId(conn, w_id, o_carrier_id, d_id, no_o_id);
 
-            updateDeliveryDate(conn, w_id, d_id, no_o_id);
-
             double orderLineTotal = getOrderLineTotal(conn, w_id, d_id, no_o_id);
+
+            updateDeliveryDate(conn, w_id, d_id, no_o_id);
 
             updateBalanceAndDelivery(conn, w_id, d_id, customerId, orderLineTotal);
         }
