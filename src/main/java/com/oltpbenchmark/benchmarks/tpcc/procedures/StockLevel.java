@@ -112,7 +112,8 @@ public class StockLevel extends TPCCProcedure {
                     throw new RuntimeException(msg);
                 }
 
-                return rs.getInt("STOCK_COUNT");
+                // TODO: ugly cast, maybe we can modify YQL?
+                return (int)rs.getLong("STOCK_COUNT");
             }
         }
     }
