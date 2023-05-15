@@ -36,23 +36,22 @@ public class StockLevel extends TPCCProcedure {
 
     public SQLStmt stockGetDistOrderIdSQL = new SQLStmt(
     """
-        SELECT D_NEXT_O_ID 
+        SELECT D_NEXT_O_ID
           FROM  %s
-         WHERE D_W_ID = ? 
+         WHERE D_W_ID = ?
            AND D_ID = ?
     """.formatted(TPCCConstants.TABLENAME_DISTRICT));
 
     public SQLStmt stockGetCountStockSQL = new SQLStmt(
     """
-        SELECT COUNT(DISTINCT (S_I_ID)) AS STOCK_COUNT 
-         FROM  %s, %s
-         WHERE OL_W_ID = ?
-         AND OL_D_ID = ?
-         AND OL_O_ID < ?
-         AND OL_O_ID >= ?
-         AND S_W_ID = ?
-         AND S_I_ID = OL_I_ID
-         AND S_QUANTITY < ?
+        SELECT COUNT(DISTINCT (s.S_I_ID)) AS STOCK_COUNT
+         FROM  %s as ol INNER JOIN %s as s ON s.S_I_ID = ol.OL_I_ID
+         WHERE ol.OL_W_ID = ?
+         AND ol.OL_D_ID = ?
+         AND ol.OL_O_ID < ?
+         AND ol.OL_O_ID >= ?
+         AND s.S_W_ID = ?
+         AND s.S_QUANTITY < ?
     """.formatted(TPCCConstants.TABLENAME_ORDERLINE, TPCCConstants.TABLENAME_STOCK));
 
     public void run(Connection conn, Random gen, int w_id, int numWarehouses, int terminalDistrictLowerID, int terminalDistrictUpperID, TPCCWorker w) throws SQLException {
