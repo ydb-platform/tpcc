@@ -84,6 +84,8 @@ CREATE TABLE customer (
     C_MIDDLE       Utf8,
     C_DATA         Utf8,
 
+    INDEX idx_customer_name GLOBAL ON (C_W_ID, C_D_ID, C_LAST, C_FIRST),
+
     PRIMARY KEY (C_W_ID, C_D_ID, C_ID)
 );
 
@@ -112,6 +114,8 @@ CREATE TABLE oorder (
     O_OL_CNT     Int32,
     O_ALL_LOCAL  Int32,
     O_ENTRY_D    Timestamp,
+
+    INDEX idx_order GLOBAL ON (O_W_ID, O_D_ID, O_C_ID, O_ID),
 
     PRIMARY KEY (O_W_ID, O_D_ID, O_ID)
 );
