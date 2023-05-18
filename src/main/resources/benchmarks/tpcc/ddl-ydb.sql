@@ -10,6 +10,9 @@ CREATE TABLE warehouse (
     W_STATE    Utf8,
     W_ZIP      Utf8,
     PRIMARY KEY (W_ID)
+)
+WITH (
+    AUTO_PARTITIONING_BY_LOAD = ENABLED
 );
 
 --jdbc:SCHEME
@@ -20,6 +23,9 @@ CREATE TABLE item (
     I_DATA  Utf8,
     I_IM_ID Int32,
     PRIMARY KEY (I_ID)
+)
+WITH (
+    AUTO_PARTITIONING_BY_LOAD = ENABLED
 );
 
 --jdbc:SCHEME
@@ -42,6 +48,10 @@ CREATE TABLE stock (
     S_DIST_09    Utf8,
     S_DIST_10    Utf8,
     PRIMARY KEY (S_W_ID, S_I_ID)
+)
+WITH (
+    AUTO_PARTITIONING_BY_LOAD = ENABLED,
+    AUTO_PARTITIONING_MAX_PARTITIONS_COUNT = 100
 );
 
 --jdbc:SCHEME
@@ -58,6 +68,9 @@ CREATE TABLE district (
     D_STATE     Utf8,
     D_ZIP       Utf8,
     PRIMARY KEY (D_W_ID, D_ID)
+)
+WITH (
+    AUTO_PARTITIONING_BY_LOAD = ENABLED
 );
 
 --jdbc:SCHEME
@@ -87,6 +100,9 @@ CREATE TABLE customer (
     INDEX idx_customer_name GLOBAL ON (C_W_ID, C_D_ID, C_LAST, C_FIRST),
 
     PRIMARY KEY (C_W_ID, C_D_ID, C_ID)
+)
+WITH (
+    AUTO_PARTITIONING_BY_LOAD = ENABLED
 );
 
 --jdbc:SCHEME
@@ -102,6 +118,9 @@ CREATE TABLE history (
     H_C_NANO_TS Int64        NOT NULL,
 
     PRIMARY KEY (H_C_NANO_TS)
+)
+WITH (
+    AUTO_PARTITIONING_BY_LOAD = ENABLED
 );
 
 --jdbc:SCHEME
@@ -118,6 +137,9 @@ CREATE TABLE oorder (
     INDEX idx_order GLOBAL ON (O_W_ID, O_D_ID, O_C_ID, O_ID),
 
     PRIMARY KEY (O_W_ID, O_D_ID, O_ID)
+)
+WITH (
+    AUTO_PARTITIONING_BY_LOAD = ENABLED
 );
 
 --jdbc:SCHEME
@@ -127,6 +149,9 @@ CREATE TABLE new_order (
     NO_O_ID Int32 NOT NULL,
 
     PRIMARY KEY (NO_W_ID, NO_D_ID, NO_O_ID)
+)
+WITH (
+    AUTO_PARTITIONING_BY_LOAD = ENABLED
 );
 
 --jdbc:SCHEME
@@ -143,4 +168,8 @@ CREATE TABLE order_line (
     OL_DIST_INFO   Utf8,
 
     PRIMARY KEY (OL_W_ID, OL_D_ID, OL_O_ID, OL_NUMBER)
+)
+WITH (
+    AUTO_PARTITIONING_BY_LOAD = ENABLED,
+    AUTO_PARTITIONING_MAX_PARTITIONS_COUNT = 100
 );
