@@ -18,6 +18,8 @@
 
 package com.oltpbenchmark.benchmarks.tpcc;
 
+import tech.ydb.jdbc.exception.YdbRetryableException;
+
 import com.oltpbenchmark.api.Loader;
 import com.oltpbenchmark.api.LoaderThread;
 import com.oltpbenchmark.benchmarks.tpcc.pojo.*;
@@ -188,16 +190,14 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                 batchSize++;
 
                 if (batchSize == workConf.getBatchSize()) {
-                    itemPrepStmt.executeBatch();
-                    itemPrepStmt.clearBatch();
+                    executeBatchWithRetry(itemPrepStmt);
                     batchSize = 0;
                 }
             }
 
 
             if (batchSize > 0) {
-                itemPrepStmt.executeBatch();
-                itemPrepStmt.clearBatch();
+                executeBatchWithRetry(itemPrepStmt);
             }
 
         } catch (SQLException se) {
@@ -241,7 +241,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
             whsePrepStmt.setString(idx++, warehouse.w_city);
             whsePrepStmt.setString(idx++, warehouse.w_state);
             whsePrepStmt.setString(idx, warehouse.w_zip);
-            whsePrepStmt.execute();
+            executeWithRetry(whsePrepStmt);
 
         } catch (SQLException se) {
             LOG.error(se.getMessage());
@@ -311,13 +311,11 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                 k++;
 
                 if (k != 0 && (k % workConf.getBatchSize()) == 0) {
-                    stockPreparedStatement.executeBatch();
-                    stockPreparedStatement.clearBatch();
+                    executeBatchWithRetry(stockPreparedStatement);
                 }
             }
 
-            stockPreparedStatement.executeBatch();
-            stockPreparedStatement.clearBatch();
+            executeBatchWithRetry(stockPreparedStatement);
 
         } catch (SQLException se) {
             LOG.error(se.getMessage());
@@ -366,7 +364,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                 distPrepStmt.setString(idx++, district.d_city);
                 distPrepStmt.setString(idx++, district.d_state);
                 distPrepStmt.setString(idx, district.d_zip);
-                distPrepStmt.executeUpdate();
+                executeUpdateWithRetry(distPrepStmt);
             }
 
         } catch (SQLException se) {
@@ -462,14 +460,12 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                     k++;
 
                     if (k != 0 && (k % workConf.getBatchSize()) == 0) {
-                        custPrepStmt.executeBatch();
-                        custPrepStmt.clearBatch();
+                        executeBatchWithRetry(custPrepStmt);
                     }
                 }
             }
 
-            custPrepStmt.executeBatch();
-            custPrepStmt.clearBatch();
+            executeBatchWithRetry(custPrepStmt);
 
         } catch (SQLException se) {
             LOG.error(se.getMessage());
@@ -520,14 +516,12 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                     k++;
 
                     if (k != 0 && (k % workConf.getBatchSize()) == 0) {
-                        histPrepStmt.executeBatch();
-                        histPrepStmt.clearBatch();
+                        executeBatchWithRetry(histPrepStmt);
                     }
                 }
             }
 
-            histPrepStmt.executeBatch();
-            histPrepStmt.clearBatch();
+            executeBatchWithRetry(histPrepStmt);
 
         } catch (SQLException se) {
             LOG.error(se.getMessage());
@@ -602,16 +596,14 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                     k++;
 
                     if (k != 0 && (k % workConf.getBatchSize()) == 0) {
-                        openOrderStatement.executeBatch();
-                        openOrderStatement.clearBatch();
+                        executeBatchWithRetry(openOrderStatement);
                     }
 
                 }
 
             }
 
-            openOrderStatement.executeBatch();
-            openOrderStatement.clearBatch();
+            executeBatchWithRetry(openOrderStatement);
 
         } catch (SQLException se) {
             LOG.error(se.getMessage(), se);
@@ -663,16 +655,15 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                     }
 
                     if (k != 0 && (k % workConf.getBatchSize()) == 0) {
-                        newOrderStatement.executeBatch();
-                        newOrderStatement.clearBatch();
+                        executeBatchWithRetry(newOrderStatement);
                     }
 
                 }
 
             }
 
-            newOrderStatement.executeBatch();
-            newOrderStatement.clearBatch();
+            executeBatchWithRetry(newOrderStatement);
+
 
         } catch (SQLException se) {
             LOG.error(se.getMessage(), se);
@@ -735,8 +726,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                         k++;
 
                         if (k != 0 && (k % workConf.getBatchSize()) == 0) {
-                            orderLineStatement.executeBatch();
-                            orderLineStatement.clearBatch();
+                            executeBatchWithRetry(orderLineStatement);
                         }
 
                     }
@@ -745,8 +735,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
 
             }
 
-            orderLineStatement.executeBatch();
-            orderLineStatement.clearBatch();
+            executeBatchWithRetry(orderLineStatement);
 
         } catch (SQLException se) {
             LOG.error(se.getMessage(), se);
@@ -754,4 +743,67 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
 
     }
 
+    protected void executeWithRetry(Runnable execution) throws SQLException {
+        final int maxRetries = 10;
+        final int waitTimeCeilingMs = 5000;
+
+        int retryCount = 0;
+        int waitTimeMs = 100;
+        while (retryCount < maxRetries) {
+            try {
+                execution.run();
+                break;
+            } catch (RuntimeException re) {
+                if (re.getCause() instanceof tech.ydb.jdbc.exception.YdbRetryableException) {
+                    if (retryCount >= maxRetries) {
+                        LOG.error("Retries executing batch exceeded: " + re.getCause().getMessage());
+                        throw re;
+                    }
+                    try {
+                        Thread.sleep(waitTimeMs);
+                    } catch (InterruptedException e) {
+                        throw re;
+                    }
+                    waitTimeMs = Math.min(waitTimeMs * 2, waitTimeCeilingMs);
+                    retryCount++;
+                    LOG.debug(String.format("Retrying %d time batch execution after retryable exception: %s",
+                        retryCount, re.getCause().getMessage()));
+                } else {
+                    LOG.error("Error executing batch: " + re.getCause().getMessage());
+                    throw re;
+                }
+            }
+        }
+    }
+
+    protected void executeBatchWithRetry(PreparedStatement statement) throws SQLException {
+        executeWithRetry(() -> {
+            try {
+                statement.executeBatch();
+                statement.clearBatch();
+            } catch (SQLException se) {
+                throw new RuntimeException(se);
+            }
+        });
+    }
+
+    protected void executeWithRetry(PreparedStatement statement) throws SQLException {
+        executeWithRetry(() -> {
+            try {
+                statement.execute();
+            } catch (SQLException se) {
+                throw new RuntimeException(se);
+            }
+        });
+    }
+
+    protected void executeUpdateWithRetry(PreparedStatement statement) throws SQLException {
+        executeWithRetry(() -> {
+            try {
+                statement.executeUpdate();
+            } catch (SQLException se) {
+                throw new RuntimeException(se);
+            }
+        });
+    }
 }
