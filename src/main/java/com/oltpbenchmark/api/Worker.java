@@ -17,6 +17,8 @@
 
 package com.oltpbenchmark.api;
 
+import tech.ydb.jdbc.exception.YdbRetryableException;
+
 import com.oltpbenchmark.*;
 import com.oltpbenchmark.api.Procedure.UserAbortException;
 import com.oltpbenchmark.types.DatabaseType;
@@ -53,6 +55,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
     protected Connection conn = null;
     protected final WorkloadConfiguration configuration;
     protected final TransactionTypes transactionTypes;
+    protected final DatabaseType dbType;
     protected final Map<TransactionType, Procedure> procedures = new HashMap<>();
     protected final Map<String, Procedure> name_procedures = new HashMap<>();
     protected final Map<Class<? extends Procedure>, Procedure> class_procedures = new HashMap<>();
@@ -73,6 +76,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
         this.workloadState = this.configuration.getWorkloadState();
         this.currStatement = null;
         this.transactionTypes = this.configuration.getTransTypes();
+        this.dbType = this.configuration.getDatabaseType();
 
         if (!this.configuration.getNewConnectionPerTxn()) {
             try {
@@ -490,7 +494,10 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
 
         LOG.debug("sql state [{}] and error code [{}]", sqlState, errorCode);
 
-        if (sqlState == null) {
+        // hack for YDB
+        if (this.dbType == DatabaseType.YDB) {
+            if (ex instanceof tech.ydb.jdbc.exception.YdbRetryableException)
+                return true;
             return false;
         }
 
