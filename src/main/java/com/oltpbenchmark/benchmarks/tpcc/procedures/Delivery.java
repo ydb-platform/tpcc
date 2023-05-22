@@ -286,11 +286,6 @@ public class Delivery extends TPCCProcedure {
 
             delivUpdateDeliveryDate.executeBatch();
             delivUpdateDeliveryDate.clearBatch();
-        } catch (SQLException se) {
-            String msg = String.format(
-                "Failed to update ORDER_LINE records [W_ID=%d, D_ID=%d, O_ID=%d]: %s", w_id, d_id, data.orderId, se);
-            LOG.error(msg);
-            throw new RuntimeException(msg);
         }
     }
 
