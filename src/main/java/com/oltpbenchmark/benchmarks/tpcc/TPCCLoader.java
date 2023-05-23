@@ -486,9 +486,14 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
 
         try (PreparedStatement histPrepStmt = conn.prepareStatement(sql)) {
 
+            long prevTs = 0;
             for (int d = 1; d <= districtsPerWarehouse; d++) {
                 for (int c = 1; c <= customersPerDistrict; c++) {
                     Timestamp sysdate = new Timestamp(System.currentTimeMillis());
+                    long ts = System.nanoTime();
+                    if (ts <= prevTs) {
+                        ts = prevTs + 1;
+                    }
 
                     History history = new History();
                     history.h_c_id = c;
@@ -510,8 +515,10 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                     histPrepStmt.setTimestamp(idx++, history.h_date);
                     histPrepStmt.setDouble(idx++, history.h_amount);
                     histPrepStmt.setString(idx++, history.h_data);
-                    histPrepStmt.setLong(idx, System.nanoTime());
+                    histPrepStmt.setLong(idx, ts);
                     histPrepStmt.addBatch();
+
+                    prevTs = ts;
 
                     k++;
 
