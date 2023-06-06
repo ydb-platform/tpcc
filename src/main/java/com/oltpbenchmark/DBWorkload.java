@@ -42,6 +42,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.sql.SQLException;
+import java.text.DecimalFormat;
 import java.util.*;
 
 public class DBWorkload {
@@ -51,6 +52,11 @@ public class DBWorkload {
 
     private static final String RATE_DISABLED = "disabled";
     private static final String RATE_UNLIMITED = "unlimited";
+
+    // FIXME: TPC-C only hack
+    private static int newOrderTxnId = -1;
+    private static int numWarehouses = 10;
+    private static int time = 0;
 
     /**
      * @param args
@@ -144,7 +150,11 @@ public class DBWorkload {
 
             String isolationMode = xmlConfig.getString("isolation[not(@bench)]", "TRANSACTION_SERIALIZABLE");
             wrkld.setIsolationMode(xmlConfig.getString("isolation" + pluginTest, isolationMode));
-            wrkld.setScaleFactor(xmlConfig.getDouble("scalefactor", 1.0));
+
+            double scaleFactor = xmlConfig.getDouble("scalefactor", 1.0);
+            numWarehouses = (int) scaleFactor;
+            wrkld.setScaleFactor(scaleFactor);
+
             wrkld.setDataDir(xmlConfig.getString("datadir", "."));
             wrkld.setDDLPath(xmlConfig.getString("ddlpath", null));
 
@@ -203,6 +213,9 @@ public class DBWorkload {
             for (int i = 1; i <= numTxnTypes; i++) {
                 String key = "transactiontypes" + pluginTest + "/transactiontype[" + i + "]";
                 String txnName = xmlConfig.getString(key + "/name");
+                if (txnName.equals("NewOrder")) {
+                    newOrderTxnId = i + txnIdOffset;
+                }
 
                 // Get ID if specified; else increment from last one.
                 int txnId = i;
@@ -335,7 +348,7 @@ public class DBWorkload {
                     System.exit(-1);
                 }
 
-                int time = work.getInt("/time", 0);
+                time = work.getInt("/time", 0);
                 int warmup = work.getInt("/warmup", 0);
                 timed = (time > 0);
                 if (!timed) {
@@ -466,6 +479,7 @@ public class DBWorkload {
             // Bombs away!
             try {
                 Results r = runWorkload(benchList, intervalMonitor);
+                printToplineResults(r);
                 writeOutputs(r, activeTXTypes, argsLine, xmlConfig);
                 writeHistograms(r);
 
@@ -653,9 +667,30 @@ public class DBWorkload {
 
         }
         Results r = ThreadBench.runRateLimitedBenchmark(workers, workConfs, intervalMonitor);
-        LOG.info(SINGLE_LINE);
-        LOG.info("Rate limited reqs/s: {}", r);
         return r;
+    }
+
+    private static void printToplineResults(Results r) {
+        long numNewOrderTransactions = 0;
+        for (LatencyRecord.Sample sample : r.getLatencySamples()) {
+            if (sample.getTransactionType() == newOrderTxnId) {
+                ++numNewOrderTransactions;
+            }
+        }
+
+        double tpmc = 1.0 * numNewOrderTransactions * 60 / time;
+        double efficiency = 1.0 * tpmc * 100 / numWarehouses / 12.86;
+        DecimalFormat df = new DecimalFormat();
+        df.setMaximumFractionDigits(2);
+        String resultOut = "\n" +
+                "================RESULTS================\n" +
+                String.format("%18s | %18d\n", "NewOrders", numNewOrderTransactions) +
+                String.format("%18s | %18.2f\n", "TPM-C", tpmc) +
+                String.format("%18s | %17.2f%%\n", "Efficiency", efficiency) +
+                String.format("Rate limited reqs/s: %s\n", r);
+
+        LOG.info(SINGLE_LINE);
+        LOG.info(resultOut);
     }
 
     private static void printUsage(Options options) {
