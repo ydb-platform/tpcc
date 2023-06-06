@@ -94,6 +94,11 @@ public class DBWorkload {
             intervalMonitor = Integer.parseInt(argsLine.getOptionValue("im"));
         }
 
+        int startFromId = 1;
+        if (argsLine.hasOption("sf")) {
+            startFromId = Integer.parseInt(argsLine.getOptionValue("sf"));
+        }
+
         // -------------------------------------------------------------------
         // GET PLUGIN LIST
         // -------------------------------------------------------------------
@@ -137,6 +142,7 @@ public class DBWorkload {
             int terminals = xmlConfig.getInt("terminals[not(@bench)]", 0);
             terminals = xmlConfig.getInt("terminals" + pluginTest, terminals);
             wrkld.setTerminals(terminals);
+            wrkld.setStartFrom(startFromId);
 
             if (xmlConfig.containsKey("loaderThreads")) {
                 int loaderThreads = xmlConfig.getInt("loaderThreads");
@@ -509,6 +515,7 @@ public class DBWorkload {
         options.addOption("d", "directory", true, "Base directory for the result files, default is current directory");
         options.addOption(null, "dialects-export", true, "Export benchmark SQL to a dialects file");
         options.addOption("jh", "json-histograms", true, "Export histograms to JSON file");
+        options.addOption("sf", "start-from-id", true, "Start from a specific scale instance id");
         return options;
     }
 

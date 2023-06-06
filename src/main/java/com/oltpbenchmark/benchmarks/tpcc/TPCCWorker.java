@@ -53,7 +53,6 @@ public class TPCCWorker extends Worker<TPCCBenchmark> {
         this.terminalDistrictLowerID = terminalDistrictLowerID;
         this.terminalDistrictUpperID = terminalDistrictUpperID;
 
-
         this.numWarehouses = numWarehouses;
     }
 
