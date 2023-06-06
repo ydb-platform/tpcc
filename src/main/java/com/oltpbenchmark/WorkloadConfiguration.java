@@ -42,6 +42,7 @@ public class WorkloadConfiguration {
     private double scaleFactor = 1.0;
     private double selectivity = -1.0;
     private int terminals;
+    private int startFromId = 1;
     private int loaderThreads = ThreadUtil.availableProcessors();
     private XMLConfiguration xmlConfig = null;
     private WorkloadState workloadState;
@@ -265,6 +266,14 @@ public class WorkloadConfiguration {
 
     public void setTerminals(int terminals) {
         this.terminals = terminals;
+    }
+
+    public int getStartFromId() {
+        return startFromId;
+    }
+
+    public void setStartFrom(int startFromId) {
+        this.startFromId = startFromId;
     }
 
     public TransactionTypes getTransTypes() {

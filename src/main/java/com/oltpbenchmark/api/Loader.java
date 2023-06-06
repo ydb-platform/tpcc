@@ -44,12 +44,14 @@ public abstract class Loader<T extends BenchmarkModule> {
 
     protected final WorkloadConfiguration workConf;
     protected final double scaleFactor;
+    protected final int startFromId;
     private final Histogram<String> tableSizes = new Histogram<>(true);
 
     public Loader(T benchmark) {
         this.benchmark = benchmark;
         this.workConf = benchmark.getWorkloadConfiguration();
         this.scaleFactor = workConf.getScaleFactor();
+        this.startFromId = workConf.getStartFromId();
     }
 
     /**

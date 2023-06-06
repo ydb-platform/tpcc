@@ -69,7 +69,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
         // We use a separate thread per warehouse. Each thread will load
         // all of the tables that depend on that warehouse. They all have
         // to wait until the ITEM table is loaded first though.
-        for (int w = 1; w <= numWarehouses; w++) {
+        for (int w = this.startFromId; w <= startFromId + numWarehouses - 1; w++) {
             final int w_id = w;
             LoaderThread t = new LoaderThread(this.benchmark) {
                 @Override

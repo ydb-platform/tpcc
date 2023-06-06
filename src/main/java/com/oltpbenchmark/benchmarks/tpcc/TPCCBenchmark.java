@@ -71,6 +71,8 @@ public class TPCCBenchmark extends BenchmarkModule {
             numWarehouses = 1;
         }
 
+        final int startWarehouseId = workConf.getStartFromId();
+
         int numTerminals = workConf.getTerminals();
 
         // We distribute terminals evenly across the warehouses
@@ -78,9 +80,11 @@ public class TPCCBenchmark extends BenchmarkModule {
         // are distributed as
         // 1, 1, 2, 1, 2, 1, 2
         final double terminalsPerWarehouse = (double) numTerminals / numWarehouses;
-        int workerId = 0;
 
-        for (int w = 0; w < numWarehouses; w++) {
+        int terminalIndex = 0;
+        int workerId = startWarehouseId / numWarehouses * numTerminals;
+
+        for (int w = startWarehouseId - 1; w < numWarehouses + startWarehouseId - 1; w++) {
             // Compute the number of terminals in *this* warehouse
             int lowerTerminalId = (int) (w * terminalsPerWarehouse);
             int upperTerminalId = (int) ((w + 1) * terminalsPerWarehouse);
@@ -105,7 +109,7 @@ public class TPCCBenchmark extends BenchmarkModule {
                 lowerDistrictId += 1;
 
                 TPCCWorker terminal = new TPCCWorker(this, workerId++, w_id, lowerDistrictId, upperDistrictId, numWarehouses);
-                terminals[lowerTerminalId + terminalId] = terminal;
+                terminals[terminalIndex++] = terminal;
             }
 
         }
