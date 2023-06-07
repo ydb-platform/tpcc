@@ -18,6 +18,7 @@
 package com.oltpbenchmark.api;
 
 import tech.ydb.jdbc.exception.YdbRetryableException;
+import tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
 
 import com.oltpbenchmark.*;
 import com.oltpbenchmark.api.Procedure.UserAbortException;
@@ -496,9 +497,9 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
 
         // hack for YDB
         if (this.dbType == DatabaseType.YDB) {
-            if (ex instanceof tech.ydb.jdbc.exception.YdbRetryableException)
-                return true;
-            return false;
+            Boolean isRetryable = ex instanceof tech.ydb.jdbc.exception.YdbRetryableException;
+            isRetryable |= ex instanceof tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
+            return isRetryable;
         }
 
         // ------------------

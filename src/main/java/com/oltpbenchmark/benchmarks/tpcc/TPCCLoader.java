@@ -19,6 +19,8 @@
 package com.oltpbenchmark.benchmarks.tpcc;
 
 import tech.ydb.jdbc.exception.YdbRetryableException;
+import tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
+
 
 import com.oltpbenchmark.api.Loader;
 import com.oltpbenchmark.api.LoaderThread;
@@ -761,7 +763,9 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                 execution.run();
                 break;
             } catch (RuntimeException re) {
-                if (re.getCause() instanceof tech.ydb.jdbc.exception.YdbRetryableException) {
+                Boolean isRetryable = re.getCause() instanceof tech.ydb.jdbc.exception.YdbRetryableException;
+                isRetryable |= re.getCause() instanceof tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
+                if (isRetryable) {
                     if (retryCount >= maxRetries) {
                         LOG.error("Retries executing batch exceeded: " + re.getCause().getMessage());
                         throw re;
