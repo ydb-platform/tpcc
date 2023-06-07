@@ -71,75 +71,82 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
         // We use a separate thread per warehouse. Each thread will load
         // all of the tables that depend on that warehouse. They all have
         // to wait until the ITEM table is loaded first though.
-        for (int w = this.startFromId; w <= startFromId + numWarehouses - 1; w++) {
-            final int w_id = w;
-            LoaderThread t = new LoaderThread(this.benchmark) {
-                @Override
-                public void load(Connection conn) {
+        //
+        // Note that if warehouses are split between many shards, then we want to
+        // start in parallel threads, which write to different shards.
+        // I.e. don't start in parallel warehouses 1 and 2, which are on the same shard,
+        // but start 1 and 100, which are on different shards.
+        for (int i = 0; i < this.warehousesPerShard; i++) {
+            for (int w = this.startFromId + i; w <= startFromId + numWarehouses - 1; w += this.warehousesPerShard) {
+                final int w_id = w;
+                LoaderThread t = new LoaderThread(this.benchmark) {
+                    @Override
+                    public void load(Connection conn) {
 
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Starting to load WAREHOUSE {}", w_id);
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("Starting to load WAREHOUSE {}", w_id);
+                        }
+                        // WAREHOUSE
+                        loadWarehouse(conn, w_id);
+
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("Starting to load STOCK {}", w_id);
+                        }
+                        // STOCK
+                        loadStock(conn, w_id, TPCCConfig.configItemCount);
+
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("Starting to load DISTRICT {}", w_id);
+                        }
+                        // DISTRICT
+                        loadDistricts(conn, w_id, TPCCConfig.configDistPerWhse);
+
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("Starting to load CUSTOMER {}", w_id);
+                        }
+                        // CUSTOMER
+                        loadCustomers(conn, w_id, TPCCConfig.configDistPerWhse, TPCCConfig.configCustPerDist);
+
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("Starting to load CUSTOMER HISTORY {}", w_id);
+                        }
+                        // CUSTOMER HISTORY
+                        loadCustomerHistory(conn, w_id, TPCCConfig.configDistPerWhse, TPCCConfig.configCustPerDist);
+
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("Starting to load ORDERS {}", w_id);
+                        }
+                        // ORDERS
+                        loadOpenOrders(conn, w_id, TPCCConfig.configDistPerWhse, TPCCConfig.configCustPerDist);
+
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("Starting to load NEW ORDERS {}", w_id);
+                        }
+                        // NEW ORDERS
+                        loadNewOrders(conn, w_id, TPCCConfig.configDistPerWhse, TPCCConfig.configCustPerDist);
+
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("Starting to load ORDER LINES {}", w_id);
+                        }
+                        // ORDER LINES
+                        loadOrderLines(conn, w_id, TPCCConfig.configDistPerWhse, TPCCConfig.configCustPerDist);
+
                     }
-                    // WAREHOUSE
-                    loadWarehouse(conn, w_id);
 
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Starting to load STOCK {}", w_id);
+                    @Override
+                    public void beforeLoad() {
+
+                        // Make sure that we load the ITEM table first
+
+                        try {
+                            itemLatch.await();
+                        } catch (InterruptedException ex) {
+                            throw new RuntimeException(ex);
+                        }
                     }
-                    // STOCK
-                    loadStock(conn, w_id, TPCCConfig.configItemCount);
-
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Starting to load DISTRICT {}", w_id);
-                    }
-                    // DISTRICT
-                    loadDistricts(conn, w_id, TPCCConfig.configDistPerWhse);
-
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Starting to load CUSTOMER {}", w_id);
-                    }
-                    // CUSTOMER
-                    loadCustomers(conn, w_id, TPCCConfig.configDistPerWhse, TPCCConfig.configCustPerDist);
-
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Starting to load CUSTOMER HISTORY {}", w_id);
-                    }
-                    // CUSTOMER HISTORY
-                    loadCustomerHistory(conn, w_id, TPCCConfig.configDistPerWhse, TPCCConfig.configCustPerDist);
-
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Starting to load ORDERS {}", w_id);
-                    }
-                    // ORDERS
-                    loadOpenOrders(conn, w_id, TPCCConfig.configDistPerWhse, TPCCConfig.configCustPerDist);
-
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Starting to load NEW ORDERS {}", w_id);
-                    }
-                    // NEW ORDERS
-                    loadNewOrders(conn, w_id, TPCCConfig.configDistPerWhse, TPCCConfig.configCustPerDist);
-
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Starting to load ORDER LINES {}", w_id);
-                    }
-                    // ORDER LINES
-                    loadOrderLines(conn, w_id, TPCCConfig.configDistPerWhse, TPCCConfig.configCustPerDist);
-
-                }
-
-                @Override
-                public void beforeLoad() {
-
-                    // Make sure that we load the ITEM table first
-
-                    try {
-                        itemLatch.await();
-                    } catch (InterruptedException ex) {
-                        throw new RuntimeException(ex);
-                    }
-                }
-            };
-            threads.add(t);
+                };
+                threads.add(t);
+            }
         }
         return (threads);
     }

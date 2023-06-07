@@ -98,6 +98,11 @@ public class DBWorkload {
             startFromId = Integer.parseInt(argsLine.getOptionValue("sf"));
         }
 
+        int warehousesPerShard = 1;
+        if (argsLine.hasOption("whs")) {
+            warehousesPerShard = Integer.parseInt(argsLine.getOptionValue("whs"));
+        }
+
         // -------------------------------------------------------------------
         // GET PLUGIN LIST
         // -------------------------------------------------------------------
@@ -142,6 +147,7 @@ public class DBWorkload {
             terminals = xmlConfig.getInt("terminals" + pluginTest, terminals);
             wrkld.setTerminals(terminals);
             wrkld.setStartFrom(startFromId);
+            wrkld.setWarehousesPerShard(warehousesPerShard);
 
             if (xmlConfig.containsKey("loaderThreads")) {
                 int loaderThreads = xmlConfig.getInt("loaderThreads");
@@ -514,6 +520,7 @@ public class DBWorkload {
         options.addOption(null, "dialects-export", true, "Export benchmark SQL to a dialects file");
         options.addOption("jh", "json-histograms", true, "Export histograms to JSON file");
         options.addOption("sf", "start-from-id", true, "Start from a specific scale instance id");
+        options.addOption("whs", "warehouses-per-shard", true, "Hint for loader to split warehouses across shards");
         return options;
     }
 

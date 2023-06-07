@@ -43,6 +43,7 @@ public class WorkloadConfiguration {
     private double selectivity = -1.0;
     private int terminals;
     private int startFromId = 1;
+    private int warehousesPerShard = 1;
     private int loaderThreads = ThreadUtil.availableProcessors();
     private XMLConfiguration xmlConfig = null;
     private WorkloadState workloadState;
@@ -274,6 +275,14 @@ public class WorkloadConfiguration {
 
     public void setStartFrom(int startFromId) {
         this.startFromId = startFromId;
+    }
+
+    public int getWarehousesPerShard() {
+        return warehousesPerShard;
+    }
+
+    public void setWarehousesPerShard(int warehousesPerShard) {
+        this.warehousesPerShard = warehousesPerShard;
     }
 
     public TransactionTypes getTransTypes() {

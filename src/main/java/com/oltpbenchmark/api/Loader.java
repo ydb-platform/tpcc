@@ -45,6 +45,7 @@ public abstract class Loader<T extends BenchmarkModule> {
     protected final WorkloadConfiguration workConf;
     protected final double scaleFactor;
     protected final int startFromId;
+    protected final int warehousesPerShard;
     private final Histogram<String> tableSizes = new Histogram<>(true);
 
     public Loader(T benchmark) {
@@ -52,6 +53,7 @@ public abstract class Loader<T extends BenchmarkModule> {
         this.workConf = benchmark.getWorkloadConfiguration();
         this.scaleFactor = workConf.getScaleFactor();
         this.startFromId = workConf.getStartFromId();
+        this.warehousesPerShard = workConf.getWarehousesPerShard();
     }
 
     /**
