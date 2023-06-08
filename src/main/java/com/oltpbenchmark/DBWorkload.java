@@ -691,6 +691,7 @@ public class DBWorkload {
         df.setMaximumFractionDigits(2);
         String resultOut = "\n" +
                 "================RESULTS================\n" +
+                String.format("%18s | %18d\n", "Time, s", time) +
                 String.format("%18s | %18d\n", "NewOrders", numNewOrderTransactions) +
                 String.format("%18s | %18.2f\n", "TPM-C", tpmc) +
                 String.format("%18s | %17.2f%%\n", "Efficiency", efficiency) +
