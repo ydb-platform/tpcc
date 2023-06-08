@@ -1,5 +1,22 @@
 #!/bin/bash
 
+MEMORY='1G'
+
+args=()
+
+while [[ "$#" > 0 ]]; do case $1 in
+    --memory)
+        memory=$2
+        shift;;
+    *)
+        args+=("$1")
+        ;;
+esac; shift; done
+
+if [[ -z $memory ]]; then
+    memory=$MEMORY
+fi
+
 if command -v java >/dev/null; then
     java_version=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
     if [[ $java_version = "17"* ]]; then
@@ -16,4 +33,4 @@ if [[ -z $java ]]; then
     fi
 fi
 
-$java -jar benchbase.jar -b tpcc "$@"
+$java -Xmx$memory -jar benchbase.jar -b tpcc "${args[@]}"
