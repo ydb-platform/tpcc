@@ -103,6 +103,11 @@ public class DBWorkload {
             warehousesPerShard = Integer.parseInt(argsLine.getOptionValue("whs"));
         }
 
+        Boolean noBulkUpload = false;
+        if (argsLine.hasOption("nob")) {
+            noBulkUpload = true;
+        }
+
         // -------------------------------------------------------------------
         // GET PLUGIN LIST
         // -------------------------------------------------------------------
@@ -148,6 +153,7 @@ public class DBWorkload {
             wrkld.setTerminals(terminals);
             wrkld.setStartFrom(startFromId);
             wrkld.setWarehousesPerShard(warehousesPerShard);
+            wrkld.setNoBulkUpload(noBulkUpload);
 
             if (xmlConfig.containsKey("loaderThreads")) {
                 int loaderThreads = xmlConfig.getInt("loaderThreads");
@@ -521,6 +527,7 @@ public class DBWorkload {
         options.addOption("jh", "json-histograms", true, "Export histograms to JSON file");
         options.addOption("sf", "start-from-id", true, "Start from a specific scale instance id");
         options.addOption("whs", "warehouses-per-shard", true, "Hint for loader to split warehouses across shards");
+        options.addOption("nob", "no-bulk-load", false, "Don't use bulk upsert to load the data");
         return options;
     }
 
