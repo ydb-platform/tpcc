@@ -75,7 +75,9 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
             try {
                 this.ydbConn = conn.unwrap(YdbConnection.class);
                 this.tableClient = ydbConn.getCtx().getTableClient();
-                this.retryCtx = SessionRetryContext.create(tableClient).build();
+                this.retryCtx = SessionRetryContext.create(tableClient)
+                    .maxRetries(50)
+                    .build();
             } catch (SQLException e) {
                 throw new RuntimeException(e);
             }
