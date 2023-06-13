@@ -81,7 +81,10 @@ public abstract class BenchmarkModule {
     public final Connection makeConnection() throws SQLException {
 
         if (StringUtils.isEmpty(workConf.getUsername())) {
-            return DriverManager.getConnection(workConf.getUrl());
+            Properties props = new Properties();
+            props.setProperty("sessionPoolSizeMin", String.valueOf(workConf.getMinSessions()));
+            props.setProperty("sessionPoolSizeMax", String.valueOf(workConf.getMaxSessions()));
+            return DriverManager.getConnection(workConf.getUrl(), props);
         } else {
             return DriverManager.getConnection(
                     workConf.getUrl(),

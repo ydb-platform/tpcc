@@ -160,6 +160,16 @@ public class DBWorkload {
                 wrkld.setLoaderThreads(loaderThreads);
             }
 
+            if (xmlConfig.containsKey("minSessions")) {
+                int minSessions = xmlConfig.getInt("minSessions");
+                wrkld.setMinSessions(minSessions);
+            }
+
+            if (xmlConfig.containsKey("maxSessions")) {
+                int maxSessions = xmlConfig.getInt("maxSessions");
+                wrkld.setMaxSessions(maxSessions);
+            }
+
             String isolationMode = xmlConfig.getString("isolation[not(@bench)]", "TRANSACTION_SERIALIZABLE");
             wrkld.setIsolationMode(xmlConfig.getString("isolation" + pluginTest, isolationMode));
 
