@@ -856,26 +856,19 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                 execution.run();
                 break;
             } catch (RuntimeException re) {
-                Boolean isRetryable = re.getCause() instanceof tech.ydb.jdbc.exception.YdbRetryableException;
-                isRetryable |= re.getCause() instanceof tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
-                if (isRetryable) {
-                    if (retryCount >= maxRetries) {
-                        LOG.error("Retries executing batch exceeded: " + re.getCause().getMessage());
-                        throw re;
-                    }
-                    try {
-                        Thread.sleep(waitTimeMs);
-                    } catch (InterruptedException e) {
-                        throw re;
-                    }
-                    waitTimeMs = Math.min(waitTimeMs * 2, waitTimeCeilingMs);
-                    retryCount++;
-                    LOG.debug(String.format("Retrying %d time batch execution after retryable exception: %s",
-                        retryCount, re.getCause().getMessage()));
-                } else {
-                    LOG.error("Error executing batch: " + re.getCause().getMessage());
+                if (retryCount >= maxRetries) {
+                    LOG.error("Retries executing batch exceeded: " + re.getCause().getMessage());
                     throw re;
                 }
+                try {
+                    Thread.sleep(waitTimeMs);
+                } catch (InterruptedException e) {
+                    throw re;
+                }
+                waitTimeMs = Math.min(waitTimeMs * 2, waitTimeCeilingMs);
+                retryCount++;
+                LOG.debug(String.format("Retrying %d time batch execution after retryable exception: %s",
+                    retryCount, re.getCause().getMessage()));
             }
         }
     }
