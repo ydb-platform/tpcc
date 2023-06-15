@@ -123,21 +123,21 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
             }
         });
 
-        // WAREHOUSES
-        // We use a separate thread per warehouse. Each thread will load
-        // all of the tables that depend on that warehouse. They all have
-        // to wait until the ITEM table is loaded first though.
+        // We assume that partitioning is the same as set by table creation. It would be better to
+        // describe the tables and get boundaries.
         //
         // Note that if warehouses are split between many shards, then we want to
         // start in parallel threads, which write to different shards.
         // I.e. don't start in parallel warehouses 1 and 2, which are on the same shard,
-        // but start 1 and 100, which are on different shards.
-        for (int i = 0; i < this.warehousesPerShard; i++) {
-            for (int w = this.startFromId + i; w <= startFromId + numWarehouses - 1; w += this.warehousesPerShard) {
-                final int w_id = w;
-                LoaderThread t = new LoaderThread(this.benchmark) {
-                    @Override
-                    public void load(Connection conn) {
+        // but start 1,2 - thread1 and 100,101 - thread2
+        final int lastWarehous = this.startFromId + (int)numWarehouses - 1;
+        for (int w = this.startFromId; w <= lastWarehous; w += this.warehousesPerShard) {
+            final int loadFrom = w;
+            final int loadUntil = Math.min(loadFrom + this.warehousesPerShard - 1, lastWarehous);
+            LoaderThread t = new LoaderThread(this.benchmark) {
+                @Override
+                public void load(Connection conn) {
+                    for (int w_id = loadFrom; w_id <= loadUntil; ++w_id) {
                         if (noBulkUpload) {
                             if (LOG.isDebugEnabled()) {
                                 LOG.debug("Starting to load WAREHOUSE {}", w_id);
@@ -238,21 +238,21 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                             loadOrderLines(ydbConnHelper, w_id, TPCCConfig.configDistPerWhse, TPCCConfig.configCustPerDist);
                         }
                     }
+                }
 
-                    @Override
-                    public void beforeLoad() {
+                @Override
+                public void beforeLoad() {
 
-                        // Make sure that we load the ITEM table first
+                    // Make sure that we load the ITEM table first
 
-                        try {
-                            itemLatch.await();
-                        } catch (InterruptedException ex) {
-                            throw new RuntimeException(ex);
-                        }
+                    try {
+                        itemLatch.await();
+                    } catch (InterruptedException ex) {
+                        throw new RuntimeException(ex);
                     }
-                };
-                threads.add(t);
-            }
+                }
+            };
+            threads.add(t);
         }
         return (threads);
     }
