@@ -101,7 +101,6 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
     @Override
     public List<LoaderThread> createLoaderThreads() {
         List<LoaderThread> threads = new ArrayList<>();
-        final CountDownLatch itemLatch = new CountDownLatch(1);
         final Boolean noBulkUpload = this.noBulkUpload;
 
         // ITEM
@@ -115,11 +114,6 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                     YDBConnectionHelper ydbConnHelper = new YDBConnectionHelper(conn);
                     loadItems(ydbConnHelper, TPCCConfig.configItemCount);
                 }
-            }
-
-            @Override
-            public void afterLoad() {
-                itemLatch.countDown();
             }
         });
 
@@ -237,18 +231,6 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                             // ORDER LINES
                             loadOrderLines(ydbConnHelper, w_id, TPCCConfig.configDistPerWhse, TPCCConfig.configCustPerDist);
                         }
-                    }
-                }
-
-                @Override
-                public void beforeLoad() {
-
-                    // Make sure that we load the ITEM table first
-
-                    try {
-                        itemLatch.await();
-                    } catch (InterruptedException ex) {
-                        throw new RuntimeException(ex);
                     }
                 }
             };
