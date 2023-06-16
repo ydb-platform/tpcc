@@ -318,7 +318,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
 
         } catch (Exception e) {
             LOG.error(e.getMessage(), e);
-            throw e;
+            System.exit(1);
         }
     }
 
@@ -359,8 +359,9 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
             whsePrepStmt.setString(idx, warehouse.w_zip);
             executeWithRetry(whsePrepStmt);
 
-        } catch (SQLException se) {
-            LOG.error(se.getMessage());
+        } catch (Exception e) {
+            LOG.error(e.getMessage());
+            System.exit(1);
         }
 
     }
@@ -436,7 +437,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
 
         } catch (Exception e) {
             LOG.error(e.getMessage(), e);
-            throw e;
+            System.exit(1);
         }
 
     }
@@ -492,7 +493,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
 
         } catch (Exception e) {
             LOG.error(e.getMessage(), e);
-            throw e;
+            System.exit(1);
         }
 
     }
@@ -583,7 +584,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
 
         } catch (Exception e) {
             LOG.error(e.getMessage(), e);
-            throw e;
+            System.exit(1);
         }
     }
 
@@ -640,7 +641,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
 
         } catch (Exception e) {
             LOG.error(e.getMessage(), e);
-            throw e;
+            System.exit(1);
         }
 
     }
@@ -713,7 +714,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
 
         } catch (Exception e) {
             LOG.error(e.getMessage(), e);
-            throw e;
+            System.exit(1);
         }
 
     }
@@ -769,7 +770,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
 
         } catch (Exception e) {
             LOG.error(e.getMessage(), e);
-            throw e;
+            System.exit(1);
         }
 
     }
@@ -841,7 +842,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
 
         } catch (Exception e) {
             LOG.error(e.getMessage(), e);
-            throw e;
+            System.exit(1);
         }
 
     }
@@ -856,20 +857,22 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
             try {
                 execution.run();
                 break;
-            } catch (RuntimeException re) {
+            } catch (Exception ex) {
                 if (retryCount >= maxRetries) {
-                    LOG.error("Retries executing batch exceeded: " + re.getCause().getMessage());
-                    throw re;
+                    LOG.error("Retries executing batch exceeded: " + ex.getMessage());
+                    throw ex;
                 }
                 try {
                     Thread.sleep(waitTimeMs);
                 } catch (InterruptedException e) {
-                    throw re;
+                    String s = String.format("Interrupted during retry: %s, original exception: %s",
+                        e.toString(), ex.toString());
+                    throw new RuntimeException(s, ex);
                 }
                 waitTimeMs = Math.min(waitTimeMs * 2, waitTimeCeilingMs);
                 retryCount++;
                 LOG.debug(String.format("Retrying %d time batch execution after retryable exception: %s",
-                    retryCount, re.getCause().getMessage()));
+                    retryCount, ex.getMessage()));
             }
         }
     }
@@ -926,8 +929,9 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                 executeBatchWithRetry(itemPrepStmt);
             }
 
-        } catch (SQLException se) {
-            LOG.error(se.getMessage());
+        } catch (Exception ex) {
+            LOG.error(ex.getMessage());
+            System.exit(1);
         }
 
     }
@@ -1000,8 +1004,9 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
 
             executeBatchWithRetry(stockPreparedStatement);
 
-        } catch (SQLException se) {
-            LOG.error(se.getMessage());
+        } catch (Exception ex) {
+            LOG.error(ex.getMessage());
+            System.exit(1);
         }
 
     }
@@ -1050,8 +1055,9 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                 executeUpdateWithRetry(distPrepStmt);
             }
 
-        } catch (SQLException se) {
-            LOG.error(se.getMessage());
+        } catch (Exception ex) {
+            LOG.error(ex.getMessage());
+            System.exit(1);
         }
 
     }
@@ -1150,8 +1156,9 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
 
             executeBatchWithRetry(custPrepStmt);
 
-        } catch (SQLException se) {
-            LOG.error(se.getMessage());
+        } catch (Exception ex) {
+            LOG.error(ex.getMessage());
+            System.exit(1);
         }
 
     }
@@ -1213,8 +1220,9 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
 
             executeBatchWithRetry(histPrepStmt);
 
-        } catch (SQLException se) {
-            LOG.error(se.getMessage());
+        } catch (Exception ex) {
+            LOG.error(ex.getMessage());
+            System.exit(1);
         }
 
     }
@@ -1295,8 +1303,9 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
 
             executeBatchWithRetry(openOrderStatement);
 
-        } catch (SQLException se) {
-            LOG.error(se.getMessage(), se);
+        } catch (Exception ex) {
+            LOG.error(ex.getMessage());
+            System.exit(1);
         }
 
     }
@@ -1344,8 +1353,9 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
             executeBatchWithRetry(newOrderStatement);
 
 
-        } catch (SQLException se) {
-            LOG.error(se.getMessage(), se);
+        } catch (Exception ex) {
+            LOG.error(ex.getMessage());
+            System.exit(1);
         }
 
     }
@@ -1416,8 +1426,9 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
 
             executeBatchWithRetry(orderLineStatement);
 
-        } catch (SQLException se) {
-            LOG.error(se.getMessage(), se);
+        } catch (Exception ex) {
+            LOG.error(ex.getMessage());
+            System.exit(1);
         }
 
     }
@@ -1447,8 +1458,8 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
             try {
                 statement.executeBatch();
                 statement.clearBatch();
-            } catch (SQLException se) {
-                throw new RuntimeException(se);
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
             }
         });
     }
@@ -1457,8 +1468,8 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
         executeWithRetry(() -> {
             try {
                 statement.execute();
-            } catch (SQLException se) {
-                throw new RuntimeException(se);
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
             }
         });
     }
@@ -1467,8 +1478,8 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
         executeWithRetry(() -> {
             try {
                 statement.executeUpdate();
-            } catch (SQLException se) {
-                throw new RuntimeException(se);
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
             }
         });
     }
