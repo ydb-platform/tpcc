@@ -130,10 +130,10 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
         // start in parallel threads, which write to different shards.
         // I.e. don't start in parallel warehouses 1 and 2, which are on the same shard,
         // but start 1,2 - thread1 and 100,101 - thread2
-        final int lastWarehous = this.startFromId + (int)numWarehouses - 1;
-        for (int w = this.startFromId; w <= lastWarehous; w += this.warehousesPerShard) {
+        final int lastWarehouse = this.startFromId + (int)numWarehouses - 1;
+        for (int w = this.startFromId; w <= lastWarehouse; w += this.warehousesPerShard) {
             final int loadFrom = w;
-            final int loadUntil = Math.min(loadFrom + this.warehousesPerShard - 1, lastWarehous);
+            final int loadUntil = Math.min(loadFrom + this.warehousesPerShard - 1, lastWarehouse);
             LoaderThread t = new LoaderThread(this.benchmark) {
                 @Override
                 public void load(Connection conn) {
