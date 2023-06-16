@@ -332,35 +332,41 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
             "$row.p7 as W_CITY, $row.p8 as W_STATE, $row.p9 as W_ZIP));\n" +
             "upsert into " + TPCCConstants.TABLENAME_WAREHOUSE + " select * from as_table(ListMap($values, $mapper));";
 
-        try (PreparedStatement whsePrepStmt = conn.prepareStatement(sql)) {
-            Warehouse warehouse = new Warehouse();
+        try {
+            executeWithRetry(() -> {
+                try (PreparedStatement whsePrepStmt = conn.prepareStatement(sql)) {
+                    Warehouse warehouse = new Warehouse();
 
-            warehouse.w_id = w_id;
-            warehouse.w_ytd = 300000;
+                    warehouse.w_id = w_id;
+                    warehouse.w_ytd = 300000;
 
-            // random within [0.0000 .. 0.2000]
-            warehouse.w_tax = (TPCCUtil.randomNumber(0, 2000, benchmark.rng())) / 10000.0;
-            warehouse.w_name = TPCCUtil.randomStr(TPCCUtil.randomNumber(6, 10, benchmark.rng()));
-            warehouse.w_street_1 = TPCCUtil.randomStr(TPCCUtil.randomNumber(10, 20, benchmark.rng()));
-            warehouse.w_street_2 = TPCCUtil.randomStr(TPCCUtil.randomNumber(10, 20, benchmark.rng()));
-            warehouse.w_city = TPCCUtil.randomStr(TPCCUtil.randomNumber(10, 20, benchmark.rng()));
-            warehouse.w_state = TPCCUtil.randomStr(3).toUpperCase();
-            warehouse.w_zip = "123456789";
+                    // random within [0.0000 .. 0.2000]
+                    warehouse.w_tax = (TPCCUtil.randomNumber(0, 2000, benchmark.rng())) / 10000.0;
+                    warehouse.w_name = TPCCUtil.randomStr(TPCCUtil.randomNumber(6, 10, benchmark.rng()));
+                    warehouse.w_street_1 = TPCCUtil.randomStr(TPCCUtil.randomNumber(10, 20, benchmark.rng()));
+                    warehouse.w_street_2 = TPCCUtil.randomStr(TPCCUtil.randomNumber(10, 20, benchmark.rng()));
+                    warehouse.w_city = TPCCUtil.randomStr(TPCCUtil.randomNumber(10, 20, benchmark.rng()));
+                    warehouse.w_state = TPCCUtil.randomStr(3).toUpperCase();
+                    warehouse.w_zip = "123456789";
 
-            int idx = 1;
-            whsePrepStmt.setInt(idx++, warehouse.w_id);
-            whsePrepStmt.setDouble(idx++, warehouse.w_ytd);
-            whsePrepStmt.setDouble(idx++, warehouse.w_tax);
-            whsePrepStmt.setString(idx++, warehouse.w_name);
-            whsePrepStmt.setString(idx++, warehouse.w_street_1);
-            whsePrepStmt.setString(idx++, warehouse.w_street_2);
-            whsePrepStmt.setString(idx++, warehouse.w_city);
-            whsePrepStmt.setString(idx++, warehouse.w_state);
-            whsePrepStmt.setString(idx, warehouse.w_zip);
-            executeWithRetry(whsePrepStmt);
+                    int idx = 1;
+                    whsePrepStmt.setInt(idx++, warehouse.w_id);
+                    whsePrepStmt.setDouble(idx++, warehouse.w_ytd);
+                    whsePrepStmt.setDouble(idx++, warehouse.w_tax);
+                    whsePrepStmt.setString(idx++, warehouse.w_name);
+                    whsePrepStmt.setString(idx++, warehouse.w_street_1);
+                    whsePrepStmt.setString(idx++, warehouse.w_street_2);
+                    whsePrepStmt.setString(idx++, warehouse.w_city);
+                    whsePrepStmt.setString(idx++, warehouse.w_state);
+                    whsePrepStmt.setString(idx, warehouse.w_zip);
+                    executeWithRetry(whsePrepStmt);
 
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            });
         } catch (Exception e) {
-            LOG.error(e.getMessage());
+            LOG.error(e.getMessage(), e);
             System.exit(1);
         }
 
