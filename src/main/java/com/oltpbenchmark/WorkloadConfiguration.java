@@ -44,7 +44,6 @@ public class WorkloadConfiguration {
     private int terminals;
     private int startFromId = 1;
     private int warehousesPerShard = 1;
-    private Boolean noBulkUpload = false;
     private int loaderThreads = ThreadUtil.availableProcessors();
     private int minSessions = ThreadUtil.availableProcessors();
     private int maxSessions = this.minSessions;
@@ -302,14 +301,6 @@ public class WorkloadConfiguration {
 
     public void setWarehousesPerShard(int warehousesPerShard) {
         this.warehousesPerShard = warehousesPerShard;
-    }
-
-    public Boolean getNoBulkUpload() {
-        return noBulkUpload;
-    }
-
-    public void setNoBulkUpload(Boolean noBulkUpload) {
-        this.noBulkUpload = noBulkUpload;
     }
 
     public TransactionTypes getTransTypes() {

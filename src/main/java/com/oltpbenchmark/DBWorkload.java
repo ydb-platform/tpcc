@@ -103,11 +103,6 @@ public class DBWorkload {
             warehousesPerShard = Integer.parseInt(argsLine.getOptionValue("whs"));
         }
 
-        Boolean noBulkUpload = false;
-        if (argsLine.hasOption("nob")) {
-            noBulkUpload = true;
-        }
-
         // -------------------------------------------------------------------
         // GET PLUGIN LIST
         // -------------------------------------------------------------------
@@ -153,7 +148,6 @@ public class DBWorkload {
             wrkld.setTerminals(terminals);
             wrkld.setStartFrom(startFromId);
             wrkld.setWarehousesPerShard(warehousesPerShard);
-            wrkld.setNoBulkUpload(noBulkUpload);
 
             if (xmlConfig.containsKey("loaderThreads")) {
                 int loaderThreads = xmlConfig.getInt("loaderThreads");
