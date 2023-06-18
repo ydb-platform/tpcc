@@ -27,6 +27,8 @@ fi
 if [[ -z $java ]]; then
     if [[ -e "/usr/lib/jvm/java-17-openjdk-amd64/bin/java" ]]; then
         java="/usr/lib/jvm/java-17-openjdk-amd64/bin/java"
+    elif [[ -e "/usr/lib/jvm/java-17/bin/java" ]]; then
+        java="/usr/lib/jvm/java-17/bin/java"
     else
         echo "Java 17 is required to run this script."
         exit 1
