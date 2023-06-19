@@ -59,6 +59,8 @@ public class DBWorkload {
     private static int numWarehouses = 10;
     private static int time = 0;
 
+    private static Boolean useRealThreads = false;
+
     /**
      * @param args
      * @throws Exception
@@ -97,6 +99,10 @@ public class DBWorkload {
         int startFromId = 1;
         if (argsLine.hasOption("sf")) {
             startFromId = Integer.parseInt(argsLine.getOptionValue("sf"));
+        }
+
+        if (argsLine.hasOption("rt")) {
+            useRealThreads = true;
         }
 
         // -------------------------------------------------------------------
@@ -516,6 +522,7 @@ public class DBWorkload {
         options.addOption(null, "dialects-export", true, "Export benchmark SQL to a dialects file");
         options.addOption("jh", "json-histograms", true, "Export histograms to JSON file");
         options.addOption("sf", "start-from-id", true, "Start from a specific scale instance id");
+        options.addOption("rt", "real-threads", false, "Use real threads");
         return options;
     }
 
@@ -646,9 +653,7 @@ public class DBWorkload {
             workConfs.add(bench.getWorkloadConfiguration());
 
         }
-        Results r = ThreadBench.runRateLimitedBenchmark(workers, workConfs, intervalMonitor);
-        LOG.info(SINGLE_LINE);
-        LOG.info("Rate limited reqs/s: {}", r);
+        Results r = ThreadBench.runRateLimitedBenchmark(workers, workConfs, intervalMonitor, useRealThreads);
         return r;
     }
 

@@ -1,9 +1,6 @@
 #!/bin/bash
 
-export TZ=UTC
-export LC_ALL=en_US.UTF-8
-
-MEMORY='1G'
+memory='1G'
 
 args=()
 
@@ -16,26 +13,32 @@ while [[ "$#" > 0 ]]; do case $1 in
         ;;
 esac; shift; done
 
-if [[ -z $memory ]]; then
-    memory=$MEMORY
-fi
+min_java_version=20
 
 if command -v java >/dev/null; then
-    java_version=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
-    if [[ $java_version = "17"* ]]; then
+    java_version=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}' | awk -F '.' '{print $1}')
+
+    if [[ $java_version -ge $min_java_version ]]; then
         java="java"
     fi
 fi
 
-if [[ -z $java ]]; then
-    if [[ -e "/usr/lib/jvm/java-17-openjdk-amd64/bin/java" ]]; then
-        java="/usr/lib/jvm/java-17-openjdk-amd64/bin/java"
-    elif [[ -e "/usr/lib/jvm/java-17/bin/java" ]]; then
-        java="/usr/lib/jvm/java-17/bin/java"
-    else
-        echo "Java 17 is required to run this script."
-        exit 1
-    fi
+if [[ -z "$java" ]]; then
+    for d in /usr/lib/jvm/*${min_java_version}*; do
+        java_check="$d/bin/java"
+        if [[ -x $java_check ]]; then
+            java_version=$($java_check -version 2>&1 | awk -F '"' '/version/ {print $2}' | awk -F '.' '{print $1}')
+            if [[ $java_version -ge $min_java_version ]]; then
+                java=$java_check
+                break
+            fi
+        fi
+    done
 fi
 
-$java -Xmx$memory -jar benchbase.jar -b tpcc "${args[@]}"
+if [[ -z "$java" ]]; then
+    echo "No Java $java_version found"
+    exit 1
+fi
+
+$java --enable-preview -Xmx$memory -jar benchbase.jar -b tpcc "${args[@]}"
