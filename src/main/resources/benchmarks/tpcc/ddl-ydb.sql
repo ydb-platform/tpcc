@@ -3,12 +3,12 @@ CREATE TABLE warehouse (
     W_ID       Int32          NOT NULL,
     W_YTD      Double,
     W_TAX      Double,
-    W_NAME     Utf8,
-    W_STREET_1 Utf8,
-    W_STREET_2 Utf8,
-    W_CITY     Utf8,
-    W_STATE    Utf8,
-    W_ZIP      Utf8,
+    W_NAME     Text,
+    W_STREET_1 Text,
+    W_STREET_2 Text,
+    W_CITY     Text,
+    W_STATE    Text,
+    W_ZIP      Text,
     PRIMARY KEY (W_ID)
 )
 WITH (
@@ -18,9 +18,9 @@ WITH (
 --jdbc:SCHEME
 CREATE TABLE item (
     I_ID    Int32           NOT NULL,
-    I_NAME  Utf8,
+    I_NAME  Text,
     I_PRICE Double,
-    I_DATA  Utf8,
+    I_DATA  Text,
     I_IM_ID Int32,
     PRIMARY KEY (I_ID)
 )
@@ -36,17 +36,17 @@ CREATE TABLE stock (
     S_YTD        Double,
     S_ORDER_CNT  Int32,
     S_REMOTE_CNT Int32,
-    S_DATA       Utf8,
-    S_DIST_01    Utf8,
-    S_DIST_02    Utf8,
-    S_DIST_03    Utf8,
-    S_DIST_04    Utf8,
-    S_DIST_05    Utf8,
-    S_DIST_06    Utf8,
-    S_DIST_07    Utf8,
-    S_DIST_08    Utf8,
-    S_DIST_09    Utf8,
-    S_DIST_10    Utf8,
+    S_DATA       Text,
+    S_DIST_01    Text,
+    S_DIST_02    Text,
+    S_DIST_03    Text,
+    S_DIST_04    Text,
+    S_DIST_05    Text,
+    S_DIST_06    Text,
+    S_DIST_07    Text,
+    S_DIST_08    Text,
+    S_DIST_09    Text,
+    S_DIST_10    Text,
     PRIMARY KEY (S_W_ID, S_I_ID)
 )
 WITH (
@@ -61,12 +61,12 @@ CREATE TABLE district (
     D_YTD       Double,
     D_TAX       Double,
     D_NEXT_O_ID Int32,
-    D_NAME      Utf8,
-    D_STREET_1  Utf8,
-    D_STREET_2  Utf8,
-    D_CITY      Utf8,
-    D_STATE     Utf8,
-    D_ZIP       Utf8,
+    D_NAME      Text,
+    D_STREET_1  Text,
+    D_STREET_2  Text,
+    D_CITY      Text,
+    D_STATE     Text,
+    D_ZIP       Text,
     PRIMARY KEY (D_W_ID, D_ID)
 )
 WITH (
@@ -79,23 +79,23 @@ CREATE TABLE customer (
     C_D_ID         Int32            NOT NULL,
     C_ID           Int32            NOT NULL,
     C_DISCOUNT     Double,
-    C_CREDIT       Utf8,
-    C_LAST         Utf8,
-    C_FIRST        Utf8,
+    C_CREDIT       Text,
+    C_LAST         Text,
+    C_FIRST        Text,
     C_CREDIT_LIM   Double,
     C_BALANCE      Double,
     C_YTD_PAYMENT  Double,
     C_PAYMENT_CNT  Int32,
     C_DELIVERY_CNT Int32,
-    C_STREET_1     Utf8,
-    C_STREET_2     Utf8,
-    C_CITY         Utf8,
-    C_STATE        Utf8,
-    C_ZIP          Utf8,
-    C_PHONE        Utf8,
+    C_STREET_1     Text,
+    C_STREET_2     Text,
+    C_CITY         Text,
+    C_STATE        Text,
+    C_ZIP          Text,
+    C_PHONE        Text,
     C_SINCE        Timestamp,
-    C_MIDDLE       Utf8,
-    C_DATA         Utf8,
+    C_MIDDLE       Text,
+    C_DATA         Text,
 
     PRIMARY KEY (C_W_ID, C_D_ID, C_ID)
 )
@@ -112,7 +112,7 @@ CREATE TABLE history (
     H_W_ID      Int32,
     H_DATE      Timestamp,
     H_AMOUNT    Double,
-    H_DATA      Utf8,
+    H_DATA      Text,
     H_C_NANO_TS Int64        NOT NULL,
 
     PRIMARY KEY (H_C_ID, H_C_NANO_TS)
@@ -156,12 +156,12 @@ CREATE TABLE order_line (
     OL_D_ID        Int32           NOT NULL,
     OL_O_ID        Int32           NOT NULL,
     OL_NUMBER      Int32           NOT NULL,
-    OL_I_ID        Int64,
+    OL_I_ID        Int32,
     OL_DELIVERY_D  Timestamp,
     OL_AMOUNT      Double,
-    OL_SUPPLY_W_ID Int64,
+    OL_SUPPLY_W_ID Int32,
     OL_QUANTITY    Double,
-    OL_DIST_INFO   Utf8,
+    OL_DIST_INFO   Text,
 
     PRIMARY KEY (OL_W_ID, OL_D_ID, OL_O_ID, OL_NUMBER)
 )
