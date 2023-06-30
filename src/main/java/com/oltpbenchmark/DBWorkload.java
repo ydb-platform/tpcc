@@ -18,6 +18,14 @@
 
 package com.oltpbenchmark;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.sql.SQLException;
+import java.text.DecimalFormat;
+import java.util.*;
+import java.util.logging.LogManager;
+
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.TransactionType;
 import com.oltpbenchmark.api.TransactionTypes;
@@ -37,13 +45,7 @@ import org.apache.commons.configuration2.tree.xpath.XPathExpressionEngine;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.sql.SQLException;
-import java.text.DecimalFormat;
-import java.util.*;
+import org.slf4j.bridge.SLF4JBridgeHandler;
 
 public class DBWorkload {
     private static final Logger LOG = LoggerFactory.getLogger(DBWorkload.class);
@@ -63,6 +65,9 @@ public class DBWorkload {
      * @throws Exception
      */
     public static void main(String[] args) throws Exception {
+        // Enable redirect Java Util Logging to SLF4J
+        LogManager.getLogManager().reset();
+        SLF4JBridgeHandler.install();
 
         // create the command line parser
         CommandLineParser parser = new DefaultParser();
