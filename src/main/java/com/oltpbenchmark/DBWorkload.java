@@ -47,6 +47,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
+import tech.ydb.jdbc.YdbDriver;
+
 public class DBWorkload {
     private static final Logger LOG = LoggerFactory.getLogger(DBWorkload.class);
 
@@ -531,6 +533,8 @@ public class DBWorkload {
         } else {
             LOG.info("Skipping benchmark workload execution");
         }
+
+        YdbDriver.deregister();
     }
 
     private static Options buildOptions(XMLConfiguration pluginConfig) {
