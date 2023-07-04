@@ -17,9 +17,6 @@
 
 package com.oltpbenchmark.api;
 
-import tech.ydb.jdbc.exception.YdbRetryableException;
-import tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
-
 import com.oltpbenchmark.*;
 import com.oltpbenchmark.api.Procedure.UserAbortException;
 import com.oltpbenchmark.types.DatabaseType;
@@ -36,6 +33,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.oltpbenchmark.types.State.MEASURE;
@@ -206,6 +204,8 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
         // wait for start
         workloadState.blockForStart();
 
+        boolean firstDelay = true;
+
         while (true) {
 
             // PART 1: Init and check if done
@@ -228,6 +228,22 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
 
             // Sleep if there's nothing to do.
             workloadState.stayAwake();
+
+            if (firstDelay) {
+                firstDelay = false;
+                int warmup = configuration.getWarmupTime();
+
+                // Additional delay to avoid starting all threads simultaneously
+                if (warmup > 0) {
+                    long maxDelay = 2000 * warmup / 3;
+                    try {
+                        Thread.sleep(ThreadLocalRandom.current().nextLong(maxDelay));
+                        LOG.info("Thread started");
+                    } catch (InterruptedException e) {
+                        LOG.error("Pre-start sleep interrupted", e);
+                    }
+                }
+            }
 
             Phase prePhase = workloadState.getCurrentPhase();
             if (prePhase == null) {

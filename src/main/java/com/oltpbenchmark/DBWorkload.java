@@ -18,14 +18,6 @@
 
 package com.oltpbenchmark;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.sql.SQLException;
-import java.text.DecimalFormat;
-import java.util.*;
-import java.util.logging.LogManager;
-
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.TransactionType;
 import com.oltpbenchmark.api.TransactionTypes;
@@ -46,8 +38,15 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
-
 import tech.ydb.jdbc.YdbDriver;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.sql.SQLException;
+import java.text.DecimalFormat;
+import java.util.*;
+import java.util.logging.LogManager;
 
 public class DBWorkload {
     private static final Logger LOG = LoggerFactory.getLogger(DBWorkload.class);
@@ -402,6 +401,7 @@ public class DBWorkload {
                     System.exit(-1);
                 }
 
+                wrkld.setWarmupTime(warmup);
                 ArrayList<Double> weights = new ArrayList<>();
 
                 double totalWeight = 0;

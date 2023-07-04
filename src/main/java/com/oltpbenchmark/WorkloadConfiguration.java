@@ -45,8 +45,9 @@ public class WorkloadConfiguration {
     private int startFromId = 1;
     private int warehousesPerShard = 1;
     private int loaderThreads = ThreadUtil.availableProcessors();
-    private int minSessions = ThreadUtil.availableProcessors();
-    private int maxSessions = this.minSessions;
+    private int minSessions = 0;
+    private int maxSessions = ThreadUtil.availableProcessors();
+    private int warmupTime = 0;
     private XMLConfiguration xmlConfig = null;
     private WorkloadState workloadState;
     private TransactionTypes transTypes = null;
@@ -186,6 +187,14 @@ public class WorkloadConfiguration {
 
     public void setMaxSessions(int maxSessions) {
         this.maxSessions = maxSessions;
+    }
+
+    public int getWarmupTime() {
+        return this.warmupTime;
+    }
+
+    public void setWarmupTime(int time) {
+        this.warmupTime = time;
     }
 
     public double getSelectivity() {
