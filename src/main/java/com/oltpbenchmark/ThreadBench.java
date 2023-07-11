@@ -545,7 +545,7 @@ public class ThreadBench implements Thread.UncaughtExceptionHandler {
                 }
                 double seconds = this.intervalMonitor / 1000d;
                 double tps = (double) measuredRequests / seconds;
-                LOG.info("Throughput: {} txn/sec", tps);
+                LOG.info("Throughput: {} txn/sec, {} threads", tps, Thread.activeCount());
             }
         }
     }

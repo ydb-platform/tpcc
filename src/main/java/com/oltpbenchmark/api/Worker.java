@@ -449,7 +449,11 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                     break;
 
                 } catch (UserAbortException ex) {
-                    conn.rollback();
+                    try {
+                        conn.rollback();
+                    } catch (Exception e) {
+                        LOG.warn("Failed to rollback transaction", e);
+                    }
 
                     ABORT_LOG.debug(String.format("%s Aborted", transactionType), ex);
 
@@ -458,7 +462,11 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                     break;
 
                 } catch (SQLException ex) {
-                    conn.rollback();
+                    try {
+                        conn.rollback();
+                    } catch (Exception e) {
+                        LOG.warn("Failed to rollback transaction", e);
+                    }
 
                     if (isRetryable(ex)) {
                         LOG.debug(String.format("Retryable SQLException occurred during [%s]... current retry attempt [%d], max retry attempts [%d], sql state [%s], error code [%d].", transactionType, retryCount, maxRetryCount, ex.getSQLState(), ex.getErrorCode()), ex);
@@ -496,10 +504,10 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                 }
 
             }
-        } catch (SQLException ex) {
+        } catch (RuntimeException ex) {
             String msg = String.format("Unexpected SQLException in '%s' when executing '%s' on [%s]", this, transactionType, databaseType.name());
-
-            throw new RuntimeException(msg, ex);
+            LOG.error(msg);
+            throw ex;
         }
 
     }
