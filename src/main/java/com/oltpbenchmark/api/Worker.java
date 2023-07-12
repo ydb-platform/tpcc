@@ -238,7 +238,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                     long maxDelay = 2000 * warmup / 3;
                     try {
                         Thread.sleep(ThreadLocalRandom.current().nextLong(maxDelay));
-                        LOG.info("Thread started");
+                        LOG.debug("Thread started");
                     } catch (InterruptedException e) {
                         LOG.error("Pre-start sleep interrupted", e);
                     }
