@@ -63,22 +63,20 @@ public class NewOrder extends TPCCProcedure {
 
     public final SQLStmt stmtInsertNewOrderSQL = new SQLStmt(
     """
-        INSERT INTO %s
+        UPSERT INTO %s
          (NO_O_ID, NO_D_ID, NO_W_ID)
          VALUES ( ?, ?, ?)
     """.formatted(TPCCConstants.TABLENAME_NEWORDER));
 
     public final SQLStmt stmtUpdateDistSQL = new SQLStmt(
     """
-        UPDATE %s
-           SET D_NEXT_O_ID = D_NEXT_O_ID + 1
-         WHERE D_W_ID = ?
-           AND D_ID = ?
+        UPSERT INTO %s (D_W_ID, D_ID, D_NEXT_O_ID)
+        VALUES (?, ?, ?)
     """.formatted(TPCCConstants.TABLENAME_DISTRICT));
 
     public final SQLStmt stmtInsertOOrderSQL = new SQLStmt(
     """
-        INSERT INTO %s
+        UPSERT INTO %s
          (O_ID, O_D_ID, O_W_ID, O_C_ID, O_ENTRY_D, O_OL_CNT, O_ALL_LOCAL)
          VALUES (?, ?, ?, ?, ?, ?, ?)
     """.formatted(TPCCConstants.TABLENAME_OPENORDER));
@@ -98,24 +96,6 @@ public class NewOrder extends TPCCProcedure {
          WHERE S_I_ID = ?
            AND S_W_ID = ?
     """.formatted(TPCCConstants.TABLENAME_STOCK));
-
-    public final SQLStmt stmtUpdateStockSQL = new SQLStmt(
-    """
-        UPDATE %s
-           SET S_QUANTITY = ? ,
-               S_YTD = S_YTD + ?,
-               S_ORDER_CNT = S_ORDER_CNT + 1,
-               S_REMOTE_CNT = S_REMOTE_CNT + ?
-         WHERE S_I_ID = ?
-           AND S_W_ID = ?
-    """.formatted(TPCCConstants.TABLENAME_STOCK));
-
-    public final SQLStmt stmtInsertOrderLineSQL = new SQLStmt(
-    """
-        INSERT INTO %s
-         (OL_O_ID, OL_D_ID, OL_W_ID, OL_NUMBER, OL_I_ID, OL_SUPPLY_W_ID, OL_QUANTITY, OL_AMOUNT, OL_DIST_INFO)
-         VALUES (?,?,?,?,?,?,?,?,?)
-    """.formatted(TPCCConstants.TABLENAME_ORDERLINE));
 
     public void run(Connection conn, Random gen, int terminalWarehouseID, int numWarehouses, int terminalDistrictLowerID, int terminalDistrictUpperID, TPCCWorker w) throws SQLException {
 
@@ -163,7 +143,7 @@ public class NewOrder extends TPCCProcedure {
 
         int d_next_o_id = getDistrict(conn, w_id, d_id);
 
-        updateDistrict(conn, w_id, d_id);
+        updateDistrict(conn, w_id, d_id, d_next_o_id + 1);
 
         insertOpenOrder(conn, w_id, d_id, c_id, o_ol_cnt, o_all_local, d_next_o_id);
 
@@ -339,10 +319,11 @@ public class NewOrder extends TPCCProcedure {
         }
     }
 
-    private void updateDistrict(Connection conn, int w_id, int d_id) throws SQLException {
+    private void updateDistrict(Connection conn, int w_id, int d_id, int d_next_o_id) throws SQLException {
         try (PreparedStatement stmtUpdateDist = this.getPreparedStatement(conn, stmtUpdateDistSQL)) {
             stmtUpdateDist.setInt(1, w_id);
             stmtUpdateDist.setInt(2, d_id);
+            stmtUpdateDist.setInt(3, d_next_o_id);
             int result = stmtUpdateDist.executeUpdate();
             if (result == 0) {
                 throw new RuntimeException("Error!! Cannot update next_order_id on district for D_ID=" + d_id + " D_W_ID=" + w_id);

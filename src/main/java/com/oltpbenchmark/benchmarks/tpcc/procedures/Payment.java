@@ -89,30 +89,21 @@ public class Payment extends TPCCProcedure {
 
     public SQLStmt payUpdateCustBalCdataSQL = new SQLStmt(
     """
-        UPDATE %s
-           SET C_BALANCE = ?,
-               C_YTD_PAYMENT = ?,
-               C_PAYMENT_CNT = ?,
-               C_DATA = ?
-         WHERE C_W_ID = ?
-           AND C_D_ID = ?
-           AND C_ID = ?
+        UPSERT INTO %s
+         (C_W_ID, C_D_ID, C_ID, C_BALANCE, C_YTD_PAYMENT, C_PAYMENT_CNT, C_DATA)
+         VALUES (?,?,?,?,?,?,?)
     """.formatted(TPCCConstants.TABLENAME_CUSTOMER));
 
     public SQLStmt payUpdateCustBalSQL = new SQLStmt(
     """
-        UPDATE %s
-           SET C_BALANCE = ?,
-               C_YTD_PAYMENT = ?,
-               C_PAYMENT_CNT = ?
-         WHERE C_W_ID = ?
-           AND C_D_ID = ?
-           AND C_ID = ?
+        UPSERT INTO %s
+         (C_W_ID, C_D_ID, C_ID, C_BALANCE, C_YTD_PAYMENT, C_PAYMENT_CNT)
+         VALUES (?,?,?,?,?,?)
     """.formatted(TPCCConstants.TABLENAME_CUSTOMER));
 
     public SQLStmt payInsertHistSQL = new SQLStmt(
     """
-        INSERT INTO %s
+        UPSERT INTO %s
          (H_C_D_ID, H_C_W_ID, H_C_ID, H_D_ID, H_W_ID, H_DATE, H_AMOUNT, H_DATA, H_C_NANO_TS)
          VALUES (?,?,?,?,?,?,?,?,?)
     """.formatted(TPCCConstants.TABLENAME_HISTORY));
@@ -388,13 +379,13 @@ public class Payment extends TPCCProcedure {
 
     private void updateBalanceCData(Connection conn, int customerDistrictID, int customerWarehouseID, Customer c) throws SQLException {
         try (PreparedStatement payUpdateCustBalCdata = this.getPreparedStatement(conn, payUpdateCustBalCdataSQL)) {
-            payUpdateCustBalCdata.setDouble(1, c.c_balance);
-            payUpdateCustBalCdata.setDouble(2, c.c_ytd_payment);
-            payUpdateCustBalCdata.setInt(3, c.c_payment_cnt);
-            payUpdateCustBalCdata.setString(4, c.c_data);
-            payUpdateCustBalCdata.setInt(5, customerWarehouseID);
-            payUpdateCustBalCdata.setInt(6, customerDistrictID);
-            payUpdateCustBalCdata.setInt(7, c.c_id);
+            payUpdateCustBalCdata.setInt(1, customerWarehouseID);
+            payUpdateCustBalCdata.setInt(2, customerDistrictID);
+            payUpdateCustBalCdata.setInt(3, c.c_id);
+            payUpdateCustBalCdata.setDouble(4, c.c_balance);
+            payUpdateCustBalCdata.setDouble(5, c.c_ytd_payment);
+            payUpdateCustBalCdata.setInt(6, c.c_payment_cnt);
+            payUpdateCustBalCdata.setString(7, c.c_data);
 
             int result = payUpdateCustBalCdata.executeUpdate();
 
@@ -407,12 +398,12 @@ public class Payment extends TPCCProcedure {
     private void updateBalance(Connection conn, int customerDistrictID, int customerWarehouseID, Customer c) throws SQLException {
 
         try (PreparedStatement payUpdateCustBal = this.getPreparedStatement(conn, payUpdateCustBalSQL)) {
-            payUpdateCustBal.setDouble(1, c.c_balance);
-            payUpdateCustBal.setDouble(2, c.c_ytd_payment);
-            payUpdateCustBal.setInt(3, c.c_payment_cnt);
-            payUpdateCustBal.setInt(4, customerWarehouseID);
-            payUpdateCustBal.setInt(5, customerDistrictID);
-            payUpdateCustBal.setInt(6, c.c_id);
+            payUpdateCustBal.setInt(1, customerWarehouseID);
+            payUpdateCustBal.setInt(2, customerDistrictID);
+            payUpdateCustBal.setInt(3, c.c_id);
+            payUpdateCustBal.setDouble(4, c.c_balance);
+            payUpdateCustBal.setDouble(5, c.c_ytd_payment);
+            payUpdateCustBal.setInt(6, c.c_payment_cnt);
 
             int result = payUpdateCustBal.executeUpdate();
 
