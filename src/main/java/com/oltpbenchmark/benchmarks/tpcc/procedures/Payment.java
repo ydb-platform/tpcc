@@ -113,11 +113,11 @@ public class Payment extends TPCCProcedure {
         SELECT C_FIRST, C_MIDDLE, C_ID, C_STREET_1, C_STREET_2, C_CITY,
                C_STATE, C_ZIP, C_PHONE, C_CREDIT, C_CREDIT_LIM, C_DISCOUNT,
                C_BALANCE, C_YTD_PAYMENT, C_PAYMENT_CNT, C_SINCE
-          FROM %s
-         WHERE C_W_ID = ?
-           AND C_D_ID = ?
-           AND C_LAST = ?
-         ORDER BY C_FIRST
+          FROM  %s VIEW idx_customer_name AS idx
+         WHERE idx.C_W_ID = ?
+           AND idx.C_D_ID = ?
+           AND idx.C_LAST = ?
+         ORDER BY idx.C_FIRST
     """.formatted(TPCCConstants.TABLENAME_CUSTOMER));
 
     public void run(Connection conn, Random gen, int w_id, int numWarehouses, int terminalDistrictLowerID, int terminalDistrictUpperID, TPCCWorker worker) throws SQLException {
