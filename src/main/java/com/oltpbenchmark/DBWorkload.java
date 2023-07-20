@@ -50,6 +50,7 @@ import java.net.InetSocketAddress;
 import java.sql.SQLException;
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.logging.Level;
 import java.util.logging.LogManager;
 
 public class DBWorkload {
@@ -74,6 +75,7 @@ public class DBWorkload {
         // Enable redirect Java Util Logging to SLF4J
         LogManager.getLogManager().reset();
         SLF4JBridgeHandler.install();
+        java.util.logging.Logger.getLogger("").setLevel(Level.FINEST);
 
         // create the command line parser
         CommandLineParser parser = new DefaultParser();
