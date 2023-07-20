@@ -23,12 +23,17 @@ import com.oltpbenchmark.types.DatabaseType;
 import com.oltpbenchmark.types.State;
 import com.oltpbenchmark.types.TransactionStatus;
 import com.oltpbenchmark.util.Histogram;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tech.ydb.jdbc.exception.YdbExecutionStatusException;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -41,6 +46,12 @@ import static com.oltpbenchmark.types.State.MEASURE;
 public abstract class Worker<T extends BenchmarkModule> implements Runnable {
     private static final Logger LOG = LoggerFactory.getLogger(Worker.class);
     private static final Logger ABORT_LOG = LoggerFactory.getLogger("com.oltpbenchmark.api.ABORT_LOG");
+
+    private static final Counter.Builder TRANSACTION_COUNTER = Counter.builder("transaction.count");
+    private static final Counter.Builder TRANSACTION_STATUS = Counter.builder("transaction.status");
+    private static final Counter.Builder ERROR_COUNTER = Counter.builder("transaction.error");
+
+    private static final Timer.Builder TRANSACTION_DURATION = Timer.builder("transaction.ms");
 
     private WorkloadState workloadState;
     private LatencyRecord latencies;
@@ -303,6 +314,9 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                 doWork(configuration.getDatabaseType(), transactionType);
 
                 long end = System.nanoTime();
+                TRANSACTION_COUNTER.tag("type", transactionType.getName()).register(Metrics.globalRegistry).increment();
+                TRANSACTION_DURATION.tag("type", transactionType.getName()).register(Metrics.globalRegistry)
+                        .record(Duration.ofNanos(end - start));
 
                 // PART 4: Record results
 
@@ -458,10 +472,16 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                     ABORT_LOG.debug(String.format("%s Aborted", transactionType), ex);
 
                     status = TransactionStatus.USER_ABORTED;
+                    TRANSACTION_STATUS.tag("status", status.toString()).register(Metrics.globalRegistry).increment();
 
                     break;
 
                 } catch (SQLException ex) {
+                    if  (ex instanceof YdbExecutionStatusException) {
+                        ERROR_COUNTER.tag("code", ((YdbExecutionStatusException)ex).getStatusCode().toString())
+                                .register(Metrics.globalRegistry).increment();
+                    }
+
                     try {
                         conn.rollback();
                     } catch (Exception e) {
@@ -474,11 +494,13 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                         status = TransactionStatus.RETRY;
 
                         retryCount++;
+                        TRANSACTION_STATUS.tag("status", status.toString()).register(Metrics.globalRegistry).increment();
                     } else {
                         LOG.warn(String.format("SQLException occurred during [%s] and will not be retried... sql state [%s], error code [%d].", transactionType, ex.getSQLState(), ex.getErrorCode()), ex);
 
                         status = TransactionStatus.ERROR;
 
+                        TRANSACTION_STATUS.tag("status", status.toString()).register(Metrics.globalRegistry).increment();
                         break;
                     }
 

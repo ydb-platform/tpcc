@@ -22,6 +22,7 @@ import com.oltpbenchmark.api.TransactionTypes;
 import com.oltpbenchmark.api.Worker;
 import com.oltpbenchmark.types.DatabaseType;
 import com.oltpbenchmark.util.*;
+import io.micrometer.core.instrument.Metrics;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import io.prometheus.client.exporter.HTTPServer;
@@ -476,6 +477,7 @@ public class DBWorkload {
                     prometheusRegistry.getPrometheusRegistry(),
                     true);
             LOG.info("Started {}", server);
+            Metrics.addRegistry(prometheusRegistry);
         }
 
         // Execute Loader
