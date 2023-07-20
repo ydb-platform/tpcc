@@ -23,6 +23,7 @@ import com.oltpbenchmark.api.Worker;
 import com.oltpbenchmark.types.DatabaseType;
 import com.oltpbenchmark.util.*;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import io.prometheus.client.exporter.HTTPServer;
@@ -418,6 +419,19 @@ public class DBWorkload {
 
         }
 
+        if (monitoringPort > 0) {
+            LOG.info("Start prometeus metric collector on port {}", monitoringPort);
+            PrometheusMeterRegistry prometheusRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+            HTTPServer server = new HTTPServer(
+                    new InetSocketAddress(monitoringPort),
+                    prometheusRegistry.getPrometheusRegistry(),
+                    true);
+            LOG.info("Started {}", server);
+            Metrics.addRegistry(prometheusRegistry);
+            String instance = xmlConfig.getString("instance", "benchbase");
+            Metrics.globalRegistry.config().commonTags(Tags.of("instance", instance));
+        }
+
         // Export StatementDialects
         if (isBooleanOptionSet(argsLine, "dialects-export")) {
             BenchmarkModule bench = benchList.get(0);
@@ -467,17 +481,6 @@ public class DBWorkload {
             }
         } else {
             LOG.debug("Skipping clearing benchmark database tables");
-        }
-
-        if (monitoringPort > 0) {
-            LOG.info("Start prometeus metric collector on port {}", monitoringPort);
-            PrometheusMeterRegistry prometheusRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
-            HTTPServer server = new HTTPServer(
-                    new InetSocketAddress(monitoringPort),
-                    prometheusRegistry.getPrometheusRegistry(),
-                    true);
-            LOG.info("Started {}", server);
-            Metrics.addRegistry(prometheusRegistry);
         }
 
         // Execute Loader
