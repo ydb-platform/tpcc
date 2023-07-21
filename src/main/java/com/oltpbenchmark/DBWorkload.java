@@ -14,8 +14,6 @@
  * limitations under the License.
  *
  */
-
-
 package com.oltpbenchmark;
 
 import com.oltpbenchmark.api.BenchmarkModule;
@@ -24,6 +22,11 @@ import com.oltpbenchmark.api.TransactionTypes;
 import com.oltpbenchmark.api.Worker;
 import com.oltpbenchmark.types.DatabaseType;
 import com.oltpbenchmark.util.*;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
+import io.micrometer.prometheus.PrometheusConfig;
+import io.micrometer.prometheus.PrometheusMeterRegistry;
+import io.prometheus.client.exporter.HTTPServer;
 import org.apache.commons.cli.*;
 import org.apache.commons.collections4.map.ListOrderedMap;
 import org.apache.commons.configuration2.HierarchicalConfiguration;
@@ -43,12 +46,15 @@ import tech.ydb.jdbc.YdbDriver;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.net.InetSocketAddress;
 import java.sql.SQLException;
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.logging.Level;
 import java.util.logging.LogManager;
 
 public class DBWorkload {
+
     private static final Logger LOG = LoggerFactory.getLogger(DBWorkload.class);
 
     private static final String SINGLE_LINE = StringUtil.repeat("=", 70);
@@ -69,6 +75,7 @@ public class DBWorkload {
         // Enable redirect Java Util Logging to SLF4J
         LogManager.getLogManager().reset();
         SLF4JBridgeHandler.install();
+        java.util.logging.Logger.getLogger("").setLevel(Level.FINEST);
 
         // create the command line parser
         CommandLineParser parser = new DefaultParser();
@@ -92,6 +99,11 @@ public class DBWorkload {
             return;
         }
 
+        // monitoring port
+        int monitoringPort = -1;
+        if (argsLine.hasOption("mp")) {
+            monitoringPort = Integer.parseInt(argsLine.getOptionValue("mp"));
+        }
 
         // Seconds
         int intervalMonitor = 0;
@@ -112,7 +124,6 @@ public class DBWorkload {
         // -------------------------------------------------------------------
         // GET PLUGIN LIST
         // -------------------------------------------------------------------
-
         String targetBenchmarks = argsLine.getOptionValue("b");
 
         String[] targetList = targetBenchmarks.split(",");
@@ -133,7 +144,6 @@ public class DBWorkload {
             // ----------------------------------------------------------------
             // BEGIN LOADING WORKLOAD CONFIGURATION
             // ----------------------------------------------------------------
-
             WorkloadConfiguration wrkld = new WorkloadConfiguration();
             wrkld.setBenchmarkName(plugin);
             wrkld.setXmlConfig(xmlConfig);
@@ -181,7 +191,6 @@ public class DBWorkload {
             // ----------------------------------------------------------------
             // CREATE BENCHMARK MODULE
             // ----------------------------------------------------------------
-
             String classname = pluginConfig.getString("/plugin[@name='" + plugin + "']");
 
             if (classname == null) {
@@ -217,7 +226,6 @@ public class DBWorkload {
                 pluginTest = "[not(@bench)]";
                 numTxnTypes = xmlConfig.configurationsAt("transactiontypes" + pluginTest + "/transactiontype").size();
             }
-
 
             List<TransactionType> ttypes = new ArrayList<>();
             ttypes.add(TransactionType.INVALID);
@@ -288,13 +296,11 @@ public class DBWorkload {
                 LOG.debug("Creating grouping with name, weights: {}, {}", groupingName, groupingWeights);
             }
 
-
             benchList.add(bench);
 
             // ----------------------------------------------------------------
             // WORKLOAD CONFIGURATION
             // ----------------------------------------------------------------
-
             int size = xmlConfig.configurationsAt("/works/work").size();
             for (int i = 1; i < size + 1; i++) {
                 final HierarchicalConfiguration<ImmutableNode> work = xmlConfig.configurationAt("works/work[" + i + "]");
@@ -346,7 +352,6 @@ public class DBWorkload {
                 // a serial (rather than random) order.
                 boolean serial = Boolean.parseBoolean(work.getString("serial", Boolean.FALSE.toString()));
 
-
                 int activeTerminals;
                 activeTerminals = work.getInt("active_terminals[not(@bench)]", terminals);
                 activeTerminals = work.getInt("active_terminals" + pluginTest, activeTerminals);
@@ -395,7 +400,6 @@ public class DBWorkload {
                     LOG.warn("rounded weight [{}] does not equal 100.  Original weight is [{}]", roundedWeight, totalWeight);
                 }
 
-
                 wrkld.addPhase(i, time, warmup, rate, weights, rateLimited, disabled, serial, timed, activeTerminals, arrival);
             }
 
@@ -415,9 +419,20 @@ public class DBWorkload {
             // Generate the dialect map
             wrkld.init();
 
-
         }
 
+        if (monitoringPort > 0) {
+            LOG.info("Start prometeus metric collector on port {}", monitoringPort);
+            PrometheusMeterRegistry prometheusRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+            HTTPServer server = new HTTPServer(
+                    new InetSocketAddress(monitoringPort),
+                    prometheusRegistry.getPrometheusRegistry(),
+                    true);
+            LOG.info("Started {}", server);
+            Metrics.addRegistry(prometheusRegistry);
+            String instance = xmlConfig.getString("instance", "benchbase");
+            Metrics.globalRegistry.config().commonTags(Tags.of("instance", instance));
+        }
 
         // Export StatementDialects
         if (isBooleanOptionSet(argsLine, "dialects-export")) {
@@ -531,6 +546,7 @@ public class DBWorkload {
         options.addOption("sf", "start-from-id", true, "Start from a specific scale instance id");
         options.addOption("whs", "warehouses-per-shard", true, "Hint for loader to split warehouses across shards");
         options.addOption("nob", "no-bulk-load", false, "Don't use bulk upsert to load the data");
+        options.addOption("mp", "monitoring-port", true, "Port for export metrics");
         return options;
     }
 
@@ -597,7 +613,6 @@ public class DBWorkload {
         if (argsLine.hasOption("d")) {
             outputDirectory = argsLine.getOptionValue("d");
         }
-
 
         FileUtil.makeDirIfNotExists(outputDirectory);
         ResultWriter rw = new ResultWriter(r, xmlConfig, argsLine);
@@ -699,13 +714,13 @@ public class DBWorkload {
         double efficiency = 1.0 * tpmc * 100 / numWarehouses / 12.86;
         DecimalFormat df = new DecimalFormat();
         df.setMaximumFractionDigits(2);
-        String resultOut = "\n" +
-                "================RESULTS================\n" +
-                String.format("%18s | %18d\n", "Time, s", time) +
-                String.format("%18s | %18d\n", "NewOrders", numNewOrderTransactions) +
-                String.format("%18s | %18.2f\n", "TPM-C", tpmc) +
-                String.format("%18s | %17.2f%%\n", "Efficiency", efficiency) +
-                String.format("Rate limited reqs/s: %s\n", r);
+        String resultOut = "\n"
+                + "================RESULTS================\n"
+                + String.format("%18s | %18d\n", "Time, s", time)
+                + String.format("%18s | %18d\n", "NewOrders", numNewOrderTransactions)
+                + String.format("%18s | %18.2f\n", "TPM-C", tpmc)
+                + String.format("%18s | %17.2f%%\n", "Efficiency", efficiency)
+                + String.format("Rate limited reqs/s: %s\n", r);
 
         LOG.info(SINGLE_LINE);
         LOG.info(resultOut);
@@ -717,8 +732,7 @@ public class DBWorkload {
     }
 
     /**
-     * Returns true if the given key is in the CommandLine object and is set to
-     * true.
+     * Returns true if the given key is in the CommandLine object and is set to true.
      *
      * @param argsLine
      * @param key
