@@ -99,12 +99,6 @@ public class DBWorkload {
             return;
         }
 
-        // monitoring port
-        int monitoringPort = -1;
-        if (argsLine.hasOption("mp")) {
-            monitoringPort = Integer.parseInt(argsLine.getOptionValue("mp"));
-        }
-
         // Seconds
         int intervalMonitor = 0;
         if (argsLine.hasOption("im")) {
@@ -421,6 +415,7 @@ public class DBWorkload {
 
         }
 
+        int monitoringPort = xmlConfig.getInt("monitoringPort", 0);
         if (monitoringPort > 0) {
             LOG.info("Start prometeus metric collector on port {}", monitoringPort);
             PrometheusMeterRegistry prometheusRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
@@ -430,7 +425,7 @@ public class DBWorkload {
                     true);
             LOG.info("Started {}", server);
             Metrics.addRegistry(prometheusRegistry);
-            String instance = xmlConfig.getString("instance", "benchbase");
+            String instance = xmlConfig.getString("monitoringName", "benchbase");
             Metrics.globalRegistry.config().commonTags(Tags.of("instance", instance));
         }
 
@@ -546,7 +541,6 @@ public class DBWorkload {
         options.addOption("sf", "start-from-id", true, "Start from a specific scale instance id");
         options.addOption("whs", "warehouses-per-shard", true, "Hint for loader to split warehouses across shards");
         options.addOption("nob", "no-bulk-load", false, "Don't use bulk upsert to load the data");
-        options.addOption("mp", "monitoring-port", true, "Port for export metrics");
         return options;
     }
 
