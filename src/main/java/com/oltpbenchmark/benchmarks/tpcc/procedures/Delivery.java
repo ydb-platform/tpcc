@@ -177,9 +177,7 @@ public class Delivery extends TPCCProcedure {
 
     private void deleteOrder(Connection conn, int w_id, int d_id, int no_o_id) throws SQLException {
         String sql = "" +
-            "declare $values as List<Struct<p1:Int32,p2:Int32,p3:Int32>>;\n" +
-            "$mapper = ($row) -> (AsStruct($row.p1 as NO_O_ID, $row.p2 as NO_D_ID, $row.p3 as NO_W_ID));\n" +
-            "delete from " + TPCCConstants.TABLENAME_NEWORDER + " on select * from as_table(ListMap($values, $mapper));";
+            "delete from " + TPCCConstants.TABLENAME_NEWORDER + " where NO_O_ID= ? and NO_D_ID = ? and NO_W_ID = ?";
 
         try (PreparedStatement delivDeleteNewOrder = conn.prepareStatement(sql)) {
             delivDeleteNewOrder.setInt(1, no_o_id);
@@ -244,11 +242,9 @@ public class Delivery extends TPCCProcedure {
     }
 
     private void updateCarrierId(Connection conn, int w_id, int o_carrier_id, int d_id, int no_o_id) throws SQLException {
-        String sql = "" +
-            "declare $values as List<Struct<p1:Int32,p2:Int32,p3:Int32,p4:Int32>>;\n" +
-            "$mapper = ($row) -> (AsStruct($row.p1 as O_CARRIER_ID, $row.p2 as O_ID, $row.p3 as O_D_ID, " +
-            "$row.p4 as O_W_ID));\n" +
-            "upsert into " + TPCCConstants.TABLENAME_OPENORDER + " select * from as_table(ListMap($values, $mapper));";
+        String sql = "upsert into "
+                + TPCCConstants.TABLENAME_OPENORDER + "(O_CARRIER_ID, O_ID, O_D_ID, O_W_ID)"
+                + " values (?, ?, ?, ?);";
 
         try (PreparedStatement delivUpdateCarrierId = conn.prepareStatement(sql)) {
             delivUpdateCarrierId.setInt(1, o_carrier_id);
@@ -313,11 +309,9 @@ public class Delivery extends TPCCProcedure {
     }
 
     private void updateBalanceAndDelivery(Connection conn, int w_id, int d_id, Data data) throws SQLException {
-        String sql = "" +
-            "declare $values as List<Struct<p1:Int32,p2:Int32,p3:Int32,p4:Int32,p5:Double>>;\n" +
-            "$mapper = ($row) -> (AsStruct($row.p1 as C_W_ID, $row.p2 as C_D_ID, $row.p3 as C_ID, " +
-            "$row.p4 as C_DELIVERY_CNT, $row.p5 as C_BALANCE));\n" +
-            "upsert into " + TPCCConstants.TABLENAME_CUSTOMER + " select * from as_table(ListMap($values, $mapper));";
+        String sql = "upsert into "
+                + TPCCConstants.TABLENAME_CUSTOMER + "(C_W_ID, C_D_ID, C_ID, C_DELIVERY_CNT, C_BALANCE) "
+                + "values (?, ?, ?, ?, ?);";
 
         try (PreparedStatement delivUpdateCustBalDelivCnt = conn.prepareStatement(sql)) {
             int idx = 1;

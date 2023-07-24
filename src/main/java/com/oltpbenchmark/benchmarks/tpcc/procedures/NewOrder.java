@@ -17,22 +17,21 @@
 
 package com.oltpbenchmark.benchmarks.tpcc.procedures;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.util.Random;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.oltpbenchmark.api.SQLStmt;
 import com.oltpbenchmark.benchmarks.tpcc.TPCCConfig;
 import com.oltpbenchmark.benchmarks.tpcc.TPCCConstants;
 import com.oltpbenchmark.benchmarks.tpcc.TPCCUtil;
 import com.oltpbenchmark.benchmarks.tpcc.TPCCWorker;
 import com.oltpbenchmark.benchmarks.tpcc.pojo.Stock;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.Random;
 
 public class NewOrder extends TPCCProcedure {
 
@@ -194,7 +193,7 @@ public class NewOrder extends TPCCProcedure {
                 stmtInsertOrderLine.setTimestamp(idx++, new Timestamp(System.currentTimeMillis()));
                 stmtInsertOrderLine.setDouble(idx++, ol_amount);
                 stmtInsertOrderLine.setInt(idx++, ol_supply_w_id);
-                stmtInsertOrderLine.setInt(idx++, ol_quantity);
+                stmtInsertOrderLine.setDouble(idx++, ol_quantity);
                 stmtInsertOrderLine.setString(idx, ol_dist_info);
                 stmtInsertOrderLine.addBatch();
 
