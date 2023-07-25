@@ -1,5 +1,8 @@
 #!/bin/bash
 
+export TZ=UTC
+export LC_ALL=en_US.UTF-8
+
 MEMORY='1G'
 
 args=()
