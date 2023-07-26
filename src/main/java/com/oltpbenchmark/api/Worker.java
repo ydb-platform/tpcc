@@ -353,7 +353,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
 
                 long start = System.nanoTime();
 
-                doWork(configuration.getDatabaseType(), transactionType);
+                TransactionStatus status = doWork(configuration.getDatabaseType(), transactionType);
 
                 long end = System.nanoTime();
                 TRANSACTIONS.tag("type", "any").register(Metrics.globalRegistry).increment();
@@ -384,7 +384,15 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                             break;
                         }
                         if (preState == MEASURE && postPhase.getId() == prePhase.getId()) {
-                            latencies.addLatency(transactionType.getId(), start, end, this.id, prePhase.getId());
+                            boolean isSuccess = status == TransactionStatus.SUCCESS ||
+                                status == TransactionStatus.USER_ABORTED;
+                            latencies.addLatency(
+                                transactionType.getId(),
+                                start,
+                                end,
+                                this.id,
+                                prePhase.getId(),
+                                isSuccess);
                             intervalRequests.incrementAndGet();
                         }
                         if (prePhase.isLatencyRun()) {
@@ -463,15 +471,15 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
      * @param databaseType TODO
      * @param transactionType TODO
      */
-    protected final void doWork(DatabaseType databaseType, TransactionType transactionType) {
+    protected final TransactionStatus doWork(DatabaseType databaseType, TransactionType transactionType) {
+        TransactionStatus status = TransactionStatus.UNKNOWN;
 
         try {
             int retryCount = 0;
             int maxRetryCount = configuration.getMaxRetries();
 
             while (retryCount < maxRetryCount && this.workloadState.getGlobalState() != State.DONE) {
-
-                TransactionStatus status = TransactionStatus.UNKNOWN;
+                status = TransactionStatus.UNKNOWN;
 
                 if (this.conn == null) {
                     try {
@@ -586,6 +594,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
             throw ex;
         }
 
+        return status;
     }
 
     private boolean isRetryable(SQLException ex) {

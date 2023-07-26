@@ -699,7 +699,7 @@ public class DBWorkload {
     private static void printToplineResults(Results r) {
         long numNewOrderTransactions = 0;
         for (LatencyRecord.Sample sample : r.getLatencySamples()) {
-            if (sample.getTransactionType() == newOrderTxnId) {
+            if (sample.getTransactionType() == newOrderTxnId && sample.isSuccess()) {
                 ++numNewOrderTransactions;
             }
         }

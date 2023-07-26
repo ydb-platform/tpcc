@@ -50,7 +50,10 @@ public class LatencyRecord implements Iterable<LatencyRecord.Sample> {
     }
 
     public void addLatency(int transType, long startNanosecond, long endNanosecond, int workerId, int phaseId) {
+        addLatency(transType, startNanosecond, endNanosecond, workerId, phaseId, true);
+    }
 
+    public void addLatency(int transType, long startNanosecond, long endNanosecond, int workerId, int phaseId, boolean isSuccess) {
 
         if (nextIndex == ALLOC_SIZE) {
             allocateChunk();
@@ -62,7 +65,7 @@ public class LatencyRecord implements Iterable<LatencyRecord.Sample> {
         int latencyMicroseconds = (int) ((endNanosecond - startNanosecond + 500) / 1000);
 
 
-        chunk[nextIndex] = new Sample(transType, startOffsetNanosecond, latencyMicroseconds, workerId, phaseId);
+        chunk[nextIndex] = new Sample(transType, startOffsetNanosecond, latencyMicroseconds, workerId, phaseId, isSuccess);
         ++nextIndex;
 
         lastNanosecond += startOffsetNanosecond;
@@ -94,13 +97,19 @@ public class LatencyRecord implements Iterable<LatencyRecord.Sample> {
         private final int latencyMicrosecond;
         private final int workerId;
         private final int phaseId;
+        private final boolean isSuccess;
 
         public Sample(int transactionType, long startNanosecond, int latencyMicrosecond, int workerId, int phaseId) {
+            this(transactionType, startNanosecond, latencyMicrosecond, workerId, phaseId, true);
+        }
+
+        public  Sample(int transactionType, long startNanosecond, int latencyMicrosecond, int workerId, int phaseId, boolean isSuccess) {
             this.transactionType = transactionType;
             this.startNanosecond = startNanosecond;
             this.latencyMicrosecond = latencyMicrosecond;
             this.workerId = workerId;
             this.phaseId = phaseId;
+            this.isSuccess = isSuccess;
         }
 
         public int getTransactionType() {
@@ -121,6 +130,10 @@ public class LatencyRecord implements Iterable<LatencyRecord.Sample> {
 
         public int getPhaseId() {
             return phaseId;
+        }
+
+        public boolean isSuccess() {
+            return isSuccess;
         }
 
         @Override
