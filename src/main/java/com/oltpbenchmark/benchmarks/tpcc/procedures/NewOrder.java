@@ -250,6 +250,8 @@ public class NewOrder extends TPCCProcedure {
                     throw new RuntimeException("S_I_ID=" + ol_i_id + " not found!");
                 }
                 Stock s = new Stock();
+                s.s_w_id = ol_supply_w_id;
+                s.s_i_id = ol_i_id;
                 s.s_quantity = rs.getInt("S_QUANTITY");
                 s.s_dist_01 = rs.getString("S_DIST_01");
                 s.s_dist_02 = rs.getString("S_DIST_02");
