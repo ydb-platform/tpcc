@@ -37,7 +37,19 @@ public class WorkloadConfiguration {
     private String password;
     private String driverClass;
     private int batchSize;
-    private int maxRetries;
+
+    // there is no reason to sleep more than 3-4 seconds in total, so we
+    // choose proper slotMillis and ceiling according maxRetries
+    private int maxRetries = 3;
+
+    // 500 + 1000 + 2000 = 3500 ms - seems OK
+    private long backoffSlotMillis = 500;
+    private int backoffCeiling = 6;
+
+    // 50 + 100 + 200 = 350 ms
+    private long fastBackoffSlotMillis = 50;
+    private int fastBackoffCeiling = 10; // doesn't matter with just 3 retries
+
     private int randomSeed = -1;
     private double scaleFactor = 1.0;
     private double selectivity = -1.0;
@@ -125,6 +137,38 @@ public class WorkloadConfiguration {
 
     public void setMaxRetries(int maxRetries) {
         this.maxRetries = maxRetries;
+    }
+
+    public void setFastBackoffSlotMillis(long fastBackoffSlotMillis) {
+        this.fastBackoffSlotMillis = fastBackoffSlotMillis;
+    }
+
+    public long getFastBackoffSlotMillis() {
+        return this.fastBackoffSlotMillis;
+    }
+
+    public void setFastBackoffCeiling(int fastBackoffCeiling) {
+        this.fastBackoffCeiling = fastBackoffCeiling;
+    }
+
+    public int getFastBackoffCeiling() {
+        return this.fastBackoffCeiling;
+    }
+
+    public void setBackoffSlotMillis(long backoffSlotMillis) {
+        this.backoffSlotMillis = backoffSlotMillis;
+    }
+
+    public long getBackoffSlotMillis() {
+        return this.backoffSlotMillis;
+    }
+
+    public void setBackoffCeiling(int backoffCeiling) {
+        this.backoffCeiling = backoffCeiling;
+    }
+
+    public int getBackoffCeiling() {
+        return this.backoffCeiling;
     }
 
     /**

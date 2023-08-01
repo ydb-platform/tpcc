@@ -28,7 +28,9 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import tech.ydb.jdbc.exception.YdbExecutionStatusException;
+import tech.ydb.core.StatusCode;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -478,7 +480,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
             int retryCount = 0;
             int maxRetryCount = configuration.getMaxRetries();
 
-            while (retryCount < maxRetryCount && this.workloadState.getGlobalState() != State.DONE) {
+            while (retryCount <= maxRetryCount && this.workloadState.getGlobalState() != State.DONE) {
                 status = TransactionStatus.UNKNOWN;
 
                 if (this.conn == null) {
@@ -543,12 +545,22 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                         LOG.warn("Failed to rollback transaction", e);
                     }
 
-                    if (isRetryable(ex)) {
+                    Boolean isRetryable = ex instanceof tech.ydb.jdbc.exception.YdbRetryableException;
+                    isRetryable |= ex instanceof tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
+                    if (isRetryable) {
                         LOG.trace(String.format("Retryable SQLException occurred during [%s]... current retry attempt [%d], max retry attempts [%d], sql state [%s], error code [%d].", transactionType, retryCount, maxRetryCount, ex.getSQLState(), ex.getErrorCode()), ex);
 
                         status = TransactionStatus.RETRY;
-
                         retryCount++;
+
+                        if (retryCount <= maxRetryCount) {
+                            long sleepMs = backoffTimeMillis(((YdbExecutionStatusException)ex).getStatusCode(), retryCount);
+                            try {
+                                Thread.sleep(sleepMs);
+                            } catch (InterruptedException e) {
+                                LOG.error("Retry sleep interrupted", e);
+                            }
+                        }
                     } else {
                         LOG.warn(String.format("SQLException occurred during [%s] and will not be retried... sql state [%s], error code [%d].", transactionType, ex.getSQLState(), ex.getErrorCode()), ex);
 
@@ -597,36 +609,47 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
         return status;
     }
 
-    private boolean isRetryable(SQLException ex) {
+    private long backoffTimeMillisInternal(int retryNumber, long backoffSlotMillis, int backoffCeiling) {
+        int slots = 1 << Math.min(retryNumber, backoffCeiling);
+        long delay = backoffSlotMillis * slots;
+        return delay + ThreadLocalRandom.current().nextLong(delay);
+    }
 
-        String sqlState = ex.getSQLState();
-        int errorCode = ex.getErrorCode();
+    private long slowBackoffTimeMillis(int retryNumber) {
+        return backoffTimeMillisInternal(
+            retryNumber,
+            configuration.getBackoffSlotMillis(),
+            configuration.getBackoffCeiling());
+    }
 
-        LOG.debug("sql state [{}] and error code [{}]", sqlState, errorCode);
+    private long fastBackoffTimeMillis(int retryNumber) {
+        return backoffTimeMillisInternal(
+            retryNumber,
+            configuration.getFastBackoffSlotMillis(),
+            configuration.getFastBackoffCeiling());
+    }
 
-        // hack for YDB
-        if (this.dbType == DatabaseType.YDB) {
-            Boolean isRetryable = ex instanceof tech.ydb.jdbc.exception.YdbRetryableException;
-            isRetryable |= ex instanceof tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
-            return isRetryable;
+    private long backoffTimeMillis(tech.ydb.core.StatusCode code, int retryNumber) {
+        switch (code) {
+            case BAD_SESSION:
+                // Instant retry
+                return 0;
+            case ABORTED:
+            case CLIENT_CANCELLED:
+            case CLIENT_INTERNAL_ERROR:
+            case SESSION_BUSY:
+            case TRANSPORT_UNAVAILABLE:
+            case UNAVAILABLE:
+            case UNDETERMINED:
+                // Fast backoff
+                return fastBackoffTimeMillis(retryNumber);
+            case NOT_FOUND:
+            case OVERLOADED:
+            case CLIENT_RESOURCE_EXHAUSTED:
+            default:
+                // Slow backoff
+                return slowBackoffTimeMillis(retryNumber);
         }
-
-        // ------------------
-        // MYSQL: https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-error-sqlstates.html
-        // ------------------
-        if (errorCode == 1213 && sqlState.equals("40001")) {
-            // MySQL ER_LOCK_DEADLOCK
-            return true;
-        } else if (errorCode == 1205 && sqlState.equals("40001")) {
-            // MySQL ER_LOCK_WAIT_TIMEOUT
-            return true;
-        }
-
-        // ------------------
-        // POSTGRES: https://www.postgresql.org/docs/current/errcodes-appendix.html
-        // ------------------
-        // Postgres serialization_failure
-        return errorCode == 0 && sqlState.equals("40001");
     }
 
     /**
