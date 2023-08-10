@@ -870,7 +870,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
 
     }
 
-    protected void executeBulkUpsert(YDBConnectionHelper ydbConnHelper, String tableName, StructType structType, List<Value<?>> batch) {
+    protected void executeBulkUpsert(YDBConnectionHelper ydbConnHelper, String tableName, StructType structType, List<Value<?>> batch) throws SQLException {
         if (batch.size() == 0) {
             return;
         }
@@ -879,15 +879,19 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
         String path = String.format("%s/%s", ydbConnHelper.getDatabase(), tableName);
         batch.clear();
 
-        try {
-            CompletableFuture<tech.ydb.core.Status> future =
-                ydbConnHelper.retryCtx.supplyStatus(session -> session.executeBulkUpsert(path, bulkData));
+        // not all errors are retried by SDK, for example CLIENT_DEADLINE_EXPIRED.
+        // but we want to retry it here.
+        executeWithRetry(() -> {
+            try {
+                CompletableFuture<tech.ydb.core.Status> future =
+                    ydbConnHelper.retryCtx.supplyStatus(session -> session.executeBulkUpsert(path, bulkData));
 
-            future.join().expectSuccess(String.format("bulk upsert problem, table: %s", tableName));
-        } catch (Exception e) {
-            LOG.error(String.format("Error executing bulk upsert, table: %s, exception: %s", tableName, e.getMessage()));
-            throw e;
-        }
+                future.join().expectSuccess(String.format("bulk upsert problem, table: %s", tableName));
+            } catch (Exception e) {
+                LOG.error(String.format("Error executing bulk upsert, table: %s, exception: %s", tableName, e.getMessage()));
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     protected void executeBatchWithRetry(PreparedStatement statement) throws SQLException {
