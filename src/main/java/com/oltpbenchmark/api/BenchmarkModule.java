@@ -18,6 +18,7 @@
 
 package com.oltpbenchmark.api;
 
+import com.mchange.v2.c3p0.ComboPooledDataSource;
 import com.oltpbenchmark.WorkloadConfiguration;
 import com.oltpbenchmark.catalog.AbstractCatalog;
 import com.oltpbenchmark.types.DatabaseType;
@@ -42,6 +43,7 @@ import java.util.*;
 public abstract class BenchmarkModule {
     private static final Logger LOG = LoggerFactory.getLogger(BenchmarkModule.class);
 
+    private static ComboPooledDataSource dataSource;
 
     /**
      * The workload configuration for this benchmark invocation
@@ -72,6 +74,30 @@ public abstract class BenchmarkModule {
     public BenchmarkModule(WorkloadConfiguration workConf) {
         this.workConf = workConf;
         this.dialects = new StatementDialects(workConf);
+
+        if (dataSource == null) {
+            try {
+                dataSource = new ComboPooledDataSource();
+                dataSource.setDriverClass("org.postgresql.Driver");
+                dataSource.setJdbcUrl(workConf.getUrl());
+                dataSource.setUser(workConf.getUsername());
+                dataSource.setPassword(workConf.getPassword());
+
+                // Optional Settings
+                dataSource.setMinPoolSize(10);
+                dataSource.setInitialPoolSize(10);
+                dataSource.setAcquireIncrement(10);
+                dataSource.setMaxPoolSize(workConf.getMaxConnections());
+                dataSource.setMaxStatements(workConf.getMaxConnections());
+
+                Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                    dataSource.close();
+                }));
+            } catch (Exception e) {
+                LOG.error("Unable to initialize DataSource: %s", e.toString());
+                throw new RuntimeException("Unable to initialize DataSource", e);
+            }
+        }
     }
 
     // --------------------------------------------------------------------------
@@ -79,15 +105,7 @@ public abstract class BenchmarkModule {
     // --------------------------------------------------------------------------
 
     public final Connection makeConnection() throws SQLException {
-
-        if (StringUtils.isEmpty(workConf.getUsername())) {
-            return DriverManager.getConnection(workConf.getUrl());
-        } else {
-            return DriverManager.getConnection(
-                    workConf.getUrl(),
-                    workConf.getUsername(),
-                    workConf.getPassword());
-        }
+        return dataSource.getConnection();
     }
 
     // --------------------------------------------------------------------------

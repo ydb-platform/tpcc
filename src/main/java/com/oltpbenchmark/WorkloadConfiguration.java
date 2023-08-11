@@ -36,6 +36,7 @@ public class WorkloadConfiguration {
     private String username;
     private String password;
     private String driverClass;
+    private int maxConnections = 100;
     private int batchSize;
     private int maxRetries;
     private int randomSeed = -1;
@@ -108,6 +109,14 @@ public class WorkloadConfiguration {
 
     public void setDriverClass(String driverClass) {
         this.driverClass = driverClass;
+    }
+
+    public int getMaxConnections() {
+        return maxConnections;
+    }
+
+    public void setMaxConnections(int maxConnections) {
+        this.maxConnections = maxConnections;
     }
 
     public int getBatchSize() {
