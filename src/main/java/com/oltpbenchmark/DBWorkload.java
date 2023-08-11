@@ -361,6 +361,7 @@ public class DBWorkload {
                     System.exit(-1);
                 }
 
+                wrkld.setWarmupTime(warmup);
                 ArrayList<Double> weights = new ArrayList<>();
 
                 double totalWeight = 0;
