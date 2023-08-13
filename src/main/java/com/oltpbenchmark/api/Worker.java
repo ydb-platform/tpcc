@@ -456,16 +456,32 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                     break;
 
                 } catch (UserAbortException ex) {
-                    conn.rollback();
+                    // TODO: probably check exception and retry if possible
+                    try {
+                        conn.rollback();
+                        status = TransactionStatus.USER_ABORTED;
+                    } catch (Exception e) {
+                        LOG.warn(
+                            String.format("Failed to rollback transaction after UserAbortException (%s): %s",
+                                          ex.toString(), e.toString()));
+
+                        status = TransactionStatus.ERROR;
+                    }
 
                     ABORT_LOG.debug(String.format("%s Aborted", transactionType), ex);
 
-                    status = TransactionStatus.USER_ABORTED;
 
                     break;
 
                 } catch (SQLException ex) {
-                    conn.rollback();
+                    // TODO: probably check exception and retry if possible
+                    try {
+                        conn.rollback();
+                    } catch (Exception e) {
+                        LOG.warn(
+                            String.format("Failed to rollback transaction after SQLException (%s): %s",
+                                          ex.toString(), e.toString()));
+                    }
 
                     if (isRetryable(ex)) {
                         LOG.debug(String.format("Retryable SQLException occurred during [%s]... current retry attempt [%d], max retry attempts [%d], sql state [%s], error code [%d].", transactionType, retryCount, maxRetryCount, ex.getSQLState(), ex.getErrorCode()), ex);
@@ -503,10 +519,10 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                 }
 
             }
-        } catch (SQLException ex) {
+        } catch (RuntimeException ex) {
             String msg = String.format("Unexpected SQLException in '%s' when executing '%s' on [%s]", this, transactionType, databaseType.name());
-
-            throw new RuntimeException(msg, ex);
+            LOG.error(msg);
+            throw ex;
         }
 
         return status;
