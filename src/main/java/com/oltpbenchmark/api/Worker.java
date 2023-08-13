@@ -520,7 +520,8 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
 
             }
         } catch (RuntimeException ex) {
-            String msg = String.format("Unexpected SQLException in '%s' when executing '%s' on [%s]", this, transactionType, databaseType.name());
+            String msg = String.format("Unexpected RuntimeException in '%s' when executing '%s' on [%s]: %s",
+                                       this, transactionType, databaseType.name(), ex.toString());
             LOG.error(msg);
             throw ex;
         }
