@@ -4,6 +4,12 @@ This is a fork of [BenchBase](https://github.com/cmu-db/benchbase), with the fol
 1. Added support for [YDB](https://ydb.tech).
 2. Fixed some performance issues in the original benchbase to speed up the benchmark.
 
+Short decriptions of branches:
+* main - the BenchBase with YDB support (TPC-C only).
+* vanilla - the original BenchBase with some performance fixes.
+* vanilla-vthreads - the original BenchBase with some performance fixes and support for virtual threads.
+* postgres - the original BenchBase with some performance fixes and with c3p0 as a connection pool.
+
 ## How to build
 
 To build the benchmark you need Java-17. This project depends on the development version of [ydb-jdbc-driver](https://github.com/ydb-platform/ydb-jdbc-driver):
@@ -21,3 +27,16 @@ Next, to build the benchbase-ydb package, execute the following command:
 ## How to run
 
 The simplest way is to use helper scripts from [benchhelpers](https://github.com/ydb-platform/benchhelpers/) located in `tpcc/ydb` folder. You can find the full instructions [here](https://github.com/ydb-platform/benchhelpers/blob/main/tpcc/ydb/README.md).
+
+# TPC-C benchmark for PostgreSQL
+
+## How to build
+
+Checkout postgres branch and execute the following command:
+```
+./mvnw clean package -P postgres -DskipTests
+```
+
+## How to run
+
+The simplest way is to use helper scripts from [benchhelpers](https://github.com/ydb-platform/benchhelpers/) located in `tpcc/postgres` folder. You can find the full instructions [here](https://github.com/ydb-platform/benchhelpers/blob/main/tpcc/postgres/README.md).
