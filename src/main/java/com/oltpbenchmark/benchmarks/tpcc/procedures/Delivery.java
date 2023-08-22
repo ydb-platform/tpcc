@@ -35,10 +35,10 @@ public class Delivery extends TPCCProcedure {
 
     public SQLStmt delivGetOrderIdSQL = new SQLStmt(
         """
-            SELECT NO_O_ID FROM %s
+            SELECT NO_W_ID, NO_D_ID, NO_O_ID FROM %s
              WHERE NO_D_ID = ?
                AND NO_W_ID = ?
-             ORDER BY NO_O_ID ASC
+             ORDER BY NO_W_ID ASC, NO_D_ID ASC, NO_O_ID ASC
              LIMIT 1
         """.formatted(TPCCConstants.TABLENAME_NEWORDER));
 

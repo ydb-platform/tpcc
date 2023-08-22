@@ -40,12 +40,12 @@ public class OrderStatus extends TPCCProcedure {
 
     public SQLStmt ordStatGetNewestOrdSQL = new SQLStmt(
     """
-        SELECT O_ID, O_CARRIER_ID, O_ENTRY_D
+        SELECT O_W_ID, O_D_ID, O_C_ID, O_ID, O_CARRIER_ID, O_ENTRY_D
           FROM  %s VIEW idx_order as idx
          WHERE idx.O_W_ID = ?
            AND idx.O_D_ID = ?
            AND idx.O_C_ID = ?
-         ORDER BY idx.O_ID DESC LIMIT 1
+         ORDER BY idx.O_W_ID DESC, idx.O_D_ID DESC, idx.O_C_ID DESC, idx.O_ID DESC LIMIT 1
     """.formatted(TPCCConstants.TABLENAME_OPENORDER));
 
     public SQLStmt ordStatGetOrderLinesSQL = new SQLStmt(
