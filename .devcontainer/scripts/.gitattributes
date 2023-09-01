@@ -1,3 +1,0 @@
-initializeCommand text eol=lf
-initializeCommand.cmd text eol=crlf
-initializeCommand.ps1 text eol=crlf
