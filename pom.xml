@@ -281,6 +281,7 @@
                     <finalName>${project.artifactId}-${classifier}</finalName>
                     <recompressZippedFiles>false</recompressZippedFiles>
                     <descriptors>${descriptors}</descriptors>
+                    <tarLongFileMode>posix</tarLongFileMode>
                 </configuration>
                 <executions>
                     <execution>
