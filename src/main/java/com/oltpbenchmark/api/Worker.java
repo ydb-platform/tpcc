@@ -43,7 +43,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
     private static final Logger ABORT_LOG = LoggerFactory.getLogger("com.oltpbenchmark.api.ABORT_LOG");
 
     private WorkloadState workloadState;
-    private LatencyRecord latencies;
+    private ResultStats resultStats;
     private final Statement currStatement;
 
     // Interval requests used by the monitor
@@ -74,6 +74,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
         this.workloadState = this.configuration.getWorkloadState();
         this.currStatement = null;
         this.transactionTypes = this.configuration.getTransTypes();
+        this.resultStats = new ResultStats(this.transactionTypes);
 
         if (!this.configuration.getNewConnectionPerTxn()) {
             try {
@@ -121,16 +122,16 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
         return (this.benchmark.rng());
     }
 
-    public final int getRequests() {
-        return latencies.size();
+    public final long getRequests() {
+        return resultStats.count();
     }
 
     public final int getAndResetIntervalRequests() {
         return intervalRequests.getAndSet(0);
     }
 
-    public final Iterable<LatencyRecord.Sample> getLatencyRecords() {
-        return latencies;
+    public final ResultStats getStats() {
+        return resultStats;
     }
 
     public final Procedure getProcedure(TransactionType type) {
@@ -190,7 +191,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
         t.setName(this.toString());
 
         // In case of reuse reset the measurements
-        latencies = new LatencyRecord(workloadState.getTestStartNs());
+        resultStats = new ResultStats(this.transactionTypes);
 
         // Invoke initialize callback
         try {
@@ -325,12 +326,10 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                         if (preState == MEASURE && postPhase.getId() == prePhase.getId()) {
                             boolean isSuccess = status == TransactionStatus.SUCCESS ||
                                 status == TransactionStatus.USER_ABORTED;
-                            latencies.addLatency(
+                            resultStats.addLatency(
                                 transactionType.getId(),
                                 start,
                                 end,
-                                this.id,
-                                prePhase.getId(),
                                 isSuccess);
                             intervalRequests.incrementAndGet();
                         }

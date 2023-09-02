@@ -17,7 +17,7 @@
 
 package com.oltpbenchmark;
 
-import com.oltpbenchmark.LatencyRecord.Sample;
+import com.oltpbenchmark.ResultStats;
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.TransactionType;
 import com.oltpbenchmark.api.Worker;
@@ -36,7 +36,7 @@ public class ThreadBench implements Thread.UncaughtExceptionHandler {
     private final List<? extends Worker<? extends BenchmarkModule>> workers;
     private final ArrayList<Thread> workerThreads;
     private final List<WorkloadConfiguration> workConfs;
-    private final ArrayList<LatencyRecord.Sample> samples = new ArrayList<>();
+    private final ResultStats resultStats;
     private final int intervalMonitor;
 
     private ThreadBench(List<? extends Worker<? extends BenchmarkModule>> workers,
@@ -46,6 +46,7 @@ public class ThreadBench implements Thread.UncaughtExceptionHandler {
         this.workerThreads = new ArrayList<>(workers.size());
         this.intervalMonitor = intervalMonitoring;
         this.testState = new BenchmarkState(workers.size() + 1);
+        this.resultStats = new ResultStats();
     }
 
     public static Results runRateLimitedBenchmark(List<Worker<? extends BenchmarkModule>> workers,
@@ -71,9 +72,9 @@ public class ThreadBench implements Thread.UncaughtExceptionHandler {
         }
     }
 
-    private int finalizeWorkers(ArrayList<Thread> workerThreads) throws InterruptedException {
+    private long finalizeWorkers(ArrayList<Thread> workerThreads) throws InterruptedException {
 
-        int requests = 0;
+        long requests = 0;
 
         new WatchDogThread().start();
 
@@ -296,25 +297,13 @@ public class ThreadBench implements Thread.UncaughtExceptionHandler {
         }
 
         try {
-            int requests = finalizeWorkers(this.workerThreads);
+            long requests = finalizeWorkers(this.workerThreads);
 
-            // Combine all the latencies together in the most disgusting way
-            // possible: sorting!
             for (Worker<?> w : workers) {
-                for (LatencyRecord.Sample sample : w.getLatencyRecords()) {
-                    samples.add(sample);
-                }
+                resultStats.add(w.getStats());
             }
-            Collections.sort(samples);
 
-            // Compute stats on all the latencies
-            int[] latencies = new int[samples.size()];
-            for (int i = 0; i < samples.size(); ++i) {
-                latencies[i] = samples.get(i).getLatencyMicrosecond();
-            }
-            DistributionStatistics stats = DistributionStatistics.computeStatistics(latencies);
-
-            Results results = new Results(measureEnd - start, requests, stats, samples);
+            Results results = new Results(measureEnd - start, requests, resultStats);
 
             // Compute transaction histogram
             Set<TransactionType> txnTypes = new HashSet<>();
@@ -374,116 +363,6 @@ public class ThreadBench implements Thread.UncaughtExceptionHandler {
                 }
             }
             testState.signalError();
-        }
-    }
-
-    public static final class TimeBucketIterable implements Iterable<DistributionStatistics> {
-        private final Iterable<Sample> samples;
-        private final int windowSizeSeconds;
-        private final TransactionType transactionType;
-
-        /**
-         * @param samples
-         * @param windowSizeSeconds
-         * @param transactionType   Allows to filter transactions by type
-         */
-        public TimeBucketIterable(Iterable<Sample> samples, int windowSizeSeconds, TransactionType transactionType) {
-            this.samples = samples;
-            this.windowSizeSeconds = windowSizeSeconds;
-            this.transactionType = transactionType;
-        }
-
-        @Override
-        public Iterator<DistributionStatistics> iterator() {
-            return new TimeBucketIterator(samples.iterator(), windowSizeSeconds, transactionType);
-        }
-    }
-
-    private static final class TimeBucketIterator implements Iterator<DistributionStatistics> {
-        private final Iterator<Sample> samples;
-        private final int windowSizeSeconds;
-        private final TransactionType txType;
-
-        private Sample sample;
-        private long nextStartNanosecond;
-
-        private DistributionStatistics next;
-
-        /**
-         * @param samples
-         * @param windowSizeSeconds
-         * @param txType            Allows to filter transactions by type
-         */
-        public TimeBucketIterator(Iterator<LatencyRecord.Sample> samples, int windowSizeSeconds,
-                TransactionType txType) {
-            this.samples = samples;
-            this.windowSizeSeconds = windowSizeSeconds;
-            this.txType = txType;
-
-            if (samples.hasNext()) {
-                sample = samples.next();
-                // TODO: To be totally correct, we would want this to be the
-                // timestamp of the start
-                // of the measurement interval. In most cases this won't matter.
-                nextStartNanosecond = sample.getStartNanosecond();
-                calculateNext();
-            }
-        }
-
-        private void calculateNext() {
-
-            // Collect all samples in the time window
-            ArrayList<Integer> latencies = new ArrayList<>();
-            long endNanoseconds = nextStartNanosecond + (windowSizeSeconds * 1000000000L);
-            while (sample != null && sample.getStartNanosecond() < endNanoseconds) {
-
-                // Check if a TX Type filter is set, in the default case,
-                // INVALID TXType means all should be reported, if a filter is
-                // set, only this specific transaction
-                if (txType.equals(TransactionType.INVALID) || txType.getId() == sample.getTransactionType()) {
-                    latencies.add(sample.getLatencyMicrosecond());
-                }
-
-                if (samples.hasNext()) {
-                    sample = samples.next();
-                } else {
-                    sample = null;
-                }
-            }
-
-            // Set up the next time window
-
-            nextStartNanosecond = endNanoseconds;
-
-            int[] l = new int[latencies.size()];
-            for (int i = 0; i < l.length; ++i) {
-                l[i] = latencies.get(i);
-            }
-
-            next = DistributionStatistics.computeStatistics(l);
-        }
-
-        @Override
-        public boolean hasNext() {
-            return next != null;
-        }
-
-        @Override
-        public DistributionStatistics next() {
-            if (next == null) {
-                throw new NoSuchElementException();
-            }
-            DistributionStatistics out = next;
-            next = null;
-            if (sample != null) {
-                calculateNext();
-            }
-            return out;
-        }
-
-        @Override
-        public void remove() {
-            throw new UnsupportedOperationException("unsupported");
         }
     }
 

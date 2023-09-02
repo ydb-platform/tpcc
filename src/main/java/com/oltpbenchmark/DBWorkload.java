@@ -591,18 +591,10 @@ public class DBWorkload {
 
         String baseFileName = name + "_" + TimeUtil.getCurrentTimeString();
 
-        int windowSize = Integer.parseInt(argsLine.getOptionValue("s", "5"));
-
-        String rawFileName = baseFileName + ".raw.csv";
+        String rawFileName = baseFileName + ".raw.json";
         try (PrintStream ps = new PrintStream(FileUtil.joinPath(outputDirectory, rawFileName))) {
             LOG.info("Output Raw data into file: {}", rawFileName);
             rw.writeRaw(activeTXTypes, ps);
-        }
-
-        String sampleFileName = baseFileName + ".samples.csv";
-        try (PrintStream ps = new PrintStream(FileUtil.joinPath(outputDirectory, sampleFileName))) {
-            LOG.info("Output samples into file: {}", sampleFileName);
-            rw.writeSamples(ps);
         }
 
         String summaryFileName = baseFileName + ".summary.json";
@@ -630,20 +622,6 @@ public class DBWorkload {
             LOG.info("Output benchmark config into file: {}", configFileName);
             rw.writeConfig(ps);
         }
-
-        String resultsFileName = baseFileName + ".results.csv";
-        try (PrintStream ps = new PrintStream(FileUtil.joinPath(outputDirectory, resultsFileName))) {
-            LOG.info("Output results into file: {} with window size {}", resultsFileName, windowSize);
-            rw.writeResults(windowSize, ps);
-        }
-
-        for (TransactionType t : activeTXTypes) {
-            String fileName = baseFileName + ".results." + t.getName() + ".csv";
-            try (PrintStream ps = new PrintStream(FileUtil.joinPath(outputDirectory, fileName))) {
-                rw.writeResults(windowSize, ps, t);
-            }
-        }
-
     }
 
     private static void runCreator(BenchmarkModule bench) throws SQLException, IOException {
@@ -675,12 +653,7 @@ public class DBWorkload {
     }
 
     private static void printToplineResults(Results r) {
-        long numNewOrderTransactions = 0;
-        for (LatencyRecord.Sample sample : r.getLatencySamples()) {
-            if (sample.getTransactionType() == newOrderTxnId && sample.isSuccess()) {
-                ++numNewOrderTransactions;
-            }
-        }
+        long numNewOrderTransactions = r.getStats().getSuccessCount(newOrderTxnId);
 
         double tpmc = 1.0 * numNewOrderTransactions * 60 / time;
         double efficiency = 1.0 * tpmc * 100 / numWarehouses / 12.86;
