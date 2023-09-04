@@ -18,7 +18,7 @@
 
 package com.oltpbenchmark;
 
-import com.oltpbenchmark.LatencyRecord.Sample;
+import com.oltpbenchmark.ResultStats;
 import com.oltpbenchmark.api.TransactionType;
 import com.oltpbenchmark.util.Histogram;
 
@@ -29,9 +29,8 @@ import java.util.Map;
 public final class Results {
 
     private final long nanoseconds;
-    private final int measuredRequests;
-    private final DistributionStatistics distributionStatistics;
-    private final List<LatencyRecord.Sample> latencySamples;
+    private final long measuredRequests;
+    private final ResultStats resultStats;
     private final Histogram<TransactionType> unknown = new Histogram<>(false);
     private final Histogram<TransactionType> success = new Histogram<>(true);
     private final Histogram<TransactionType> abort = new Histogram<>(false);
@@ -40,22 +39,10 @@ public final class Results {
     private final Histogram<TransactionType> retryDifferent = new Histogram<>(false);
     private final Map<TransactionType, Histogram<String>> abortMessages = new HashMap<>();
 
-    public Results(long nanoseconds, int measuredRequests, DistributionStatistics distributionStatistics, final List<LatencyRecord.Sample> latencySamples) {
+    public Results(long nanoseconds, long measuredRequests, ResultStats resultStats) {
         this.nanoseconds = nanoseconds;
         this.measuredRequests = measuredRequests;
-        this.distributionStatistics = distributionStatistics;
-
-        if (distributionStatistics == null) {
-            this.latencySamples = null;
-        } else {
-            // defensive copy
-            this.latencySamples = List.copyOf(latencySamples);
-
-        }
-    }
-
-    public DistributionStatistics getDistributionStatistics() {
-        return distributionStatistics;
+        this.resultStats = resultStats;
     }
 
     public Histogram<TransactionType> getSuccess() {
@@ -94,15 +81,15 @@ public final class Results {
         return (double) success.getSampleCount() / (double) nanoseconds * 1e9;
     }
 
-    public List<Sample> getLatencySamples() {
-        return latencySamples;
+    public ResultStats getStats() {
+        return resultStats;
     }
 
     public long getNanoseconds() {
         return nanoseconds;
     }
 
-    public int getMeasuredRequests() {
+    public long getMeasuredRequests() {
         return measuredRequests;
     }
 
