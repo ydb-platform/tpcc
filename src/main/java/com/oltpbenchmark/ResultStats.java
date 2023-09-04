@@ -224,18 +224,21 @@ public class ResultStats {
         long successCount;
         long failedCount;
 
-        Histogram latencyHistogramMs;
+        Histogram latencySuccessHistogramMs;
+        Histogram latencyFailedHistogramMs;
 
         public TransactionStats() {
-            this.latencyHistogramMs = new Histogram();
+            this.latencySuccessHistogramMs = new Histogram();
+            this.latencyFailedHistogramMs = new Histogram();
         }
 
         public void addLatency(long startNanosecond, long endNanosecond, boolean isSuccess) {
-            latencyHistogramMs.add((int) ((endNanosecond - startNanosecond) / 1000));
 
             if (isSuccess) {
+                latencySuccessHistogramMs.add((int) ((endNanosecond - startNanosecond) / 1000));
                 successCount++;
             } else {
+                latencyFailedHistogramMs.add((int) ((endNanosecond - startNanosecond) / 1000));
                 failedCount++;
             }
         }
@@ -243,7 +246,8 @@ public class ResultStats {
         public void add(TransactionStats another) {
             this.successCount += another.successCount;
             this.failedCount += another.failedCount;
-            this.latencyHistogramMs.add(another.latencyHistogramMs);
+            this.latencySuccessHistogramMs.add(another.latencySuccessHistogramMs);
+            this.latencyFailedHistogramMs.add(another.latencyFailedHistogramMs);
         }
 
         public long count() {
@@ -258,14 +262,11 @@ public class ResultStats {
             StringBuilder json = new StringBuilder();
             json.append("{");
 
-            // Add SuccessCount to JSON
             json.append("\"SuccessCount\": ").append(successCount).append(", ");
-
-            // Add FailureCount to JSON
             json.append("\"FailureCount\": ").append(failedCount).append(", ");
 
-            // Add LatencyHistogramMs to JSON
-            json.append("\"LatencyHistogramMs\": ").append(latencyHistogramMs.toJson());
+            json.append("\"LatencySuccessHistogramMs\": ").append(latencySuccessHistogramMs.toJson());
+            json.append(", \"LatencyFailedHistogramMs\": ").append(latencyFailedHistogramMs.toJson());
 
             json.append("}");
             return json.toString();
@@ -278,8 +279,12 @@ public class ResultStats {
             reprStr.append(successCount);
             reprStr.append("\nFailed: ");
             reprStr.append(failedCount);
-            reprStr.append("\nLatency histogram, ms:\n");
-            reprStr.append(latencyHistogramMs.toString());
+
+            reprStr.append("\nLatency success histogram, ms:\n");
+            reprStr.append(latencySuccessHistogramMs.toString());
+
+            reprStr.append("\nLatency failed histogram, ms:\n");
+            reprStr.append(latencyFailedHistogramMs.toString());
 
             return reprStr.toString();
         }
