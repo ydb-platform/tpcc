@@ -3,40 +3,25 @@
 This is a fork of [BenchBase](https://github.com/cmu-db/benchbase), with the following enhancements:
 1. Added support for [YDB](https://ydb.tech) (TPC-C only).
 2. Fixed some performance issues in the original benchbase to speed up the benchmark.
+3. To address issues with running high number of warehouses, we added support for virtual threads (requires Java >= 19, we have tested on Java 20).
+4. Significantly reduced the memory footprint of the benchmark.
 
 Short decriptions of branches:
 * main - the BenchBase with YDB support.
-* ydb-vthreads - the BenchBase with YDB and virtual threads support (requires Java >= 19, we have tested on Java 20).
 * vanilla - the original BenchBase with performance enhancements.
-* vanilla-vthreads - vanilla with virtual threads support (requires Java >= 19, we have tested on Java 20).
 * postgres - vanilla with c3p0 as a connection pool.
 
 ## Hardware requirements
 
-According to the TPC-C standard, each warehouse contains 10 terminals. The original BenchBase implements each terminal as an individual thread. Thankfully, these threads are mostly in a sleeping state, resulting in minimal CPU contention (it's important to note that a high number of non-ready threads doesn't impact the Linux scheduler). However, each thread requires memory for its stack, leading to a considerable RAM consumption during the benchmark. We offer a reference table indicating the necessary amount of RAM and CPU cores for varying numbers of warehouses when executing against YDB:
+Minumum requirements for running the benchmark against YDB:
+* 2 cores and 4 GB RAM (for 100 warehouses)
+* 4 cores and 6 GB RAM (for 1000 warehouses)
 
-| Warehouses | RAM, GB | Consumed CPU cores |
-| -------: | -------: | -------: |
-| 100   | 30   | 1   |
-| 500   | 95   | 2   |
-| 1000   | 120   | 2    |
-| 2000   | 150   | 6    |
-| 3000   | 162   | 10   |
+Above 1000 warehouses, the memory and CPU consumption grow linearly, you need:
+* 1 core per 1000 warehouses
+* 6 MB RAM per warehouse
 
-With the original BenchBase's thread-per-terminal approach, we encountered limitations in running more than 3000 warehouses on a single machine with 500 GB of RAM. While it's technically feasible to execute 3000 warehouses on one machine using a single TPC-C instance, we typically cap the number of warehouses at around 500 per TPC-C instance to mitigate various types of client-side bottlenecks including garbage collection. Instead, if there are enouch CPU and RAM resources, we run multiple instances of TPC-C benchmark on a single machine. For example, to test 1000 warehouses, we run two instances of TPC-C benchmark, each simulating 500 warehouses.
-
-Despite the low CPU consumption, there are lot of threads and we recommend to have at least 16 cores to run 1000 warehouses and higher.
-
-With virtual threads and Java 20 we are able to run more than 3000 warehouses on a single TPC-C instance on a machine with 500 GB of RAM. However, we encountered several issues and recommend to use them only for testing purposes. For example, on our 128-core machine with hyper-threading enabled, Java's affinity setting behaves unusually by utilizing only even-numbered cores. Here is a reference table indicating the necessary amount of RAM and CPU cores for varying numbers of warehouses when executing against YDB with virtual threads:
-
-| Warehouses | RAM, GB | Consumed CPU cores |
-| -------: | -------: | -------: |
-| 4000   |  338   | 4   |
-| 5000   |  371   | 4   |
-| 6000   |  407   | 5   |
-| 7000   |  418   | 9   |
-| 8000   |  423   | 15   |
-
+E.g. to run 10000 warehouses you need to have at least 10 cores and 64 GB RAM. However, Instead of running 10000 warehouses on a single instance (and machine), we recommend to run at most 5000 warehouses per instance (preferably on separate machines).
 
 # TPC-C benchmark for YDB
 
@@ -44,9 +29,8 @@ With virtual threads and Java 20 we are able to run more than 3000 warehouses on
 
 Prebuilt packages:
 * [benchbase-ydb.tgz](https://storage.yandexcloud.net/ydb-benchmark-builds/benchbase-ydb.tgz)
-* [benchbase-ydb-vthreads.tgz](https://storage.yandexcloud.net/ydb-benchmark-builds/benchbase-ydb-vthreads.tgz)
 
-To build the benchmark you need Java 17 (or Java >= 19 if you build version with the virtual threads). This project depends on the development version of [ydb-jdbc-driver](https://github.com/ydb-platform/ydb-jdbc-driver):
+To build the benchmark you need Java >= 19 (we tested on Java 20). This project depends on the development version of [ydb-jdbc-driver](https://github.com/ydb-platform/ydb-jdbc-driver):
 1. Clone the ydb-jdbc-driver repository.
 2. Build and install the ydb-jdbc-driver:
 ```
