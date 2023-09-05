@@ -3,7 +3,7 @@
 This is a fork of [BenchBase](https://github.com/cmu-db/benchbase), with the following enhancements:
 1. Added support for [YDB](https://ydb.tech) (TPC-C only).
 2. Fixed some performance issues in the original benchbase to speed up the benchmark.
-3. To address issues with running high number of warehouses, we added support for virtual threads (requires Java >= 19, we have tested on Java 20).
+3. To address issues with running high number of warehouses, we added support for virtual threads (requires Java >= 20).
 4. Significantly reduced the memory footprint of the benchmark.
 
 Short decriptions of branches:
@@ -32,7 +32,7 @@ To reduce memory consumption, make sure you don't use huge pages or transparent 
 Prebuilt packages:
 * [benchbase-ydb.tgz](https://storage.yandexcloud.net/ydb-benchmark-builds/benchbase-ydb.tgz)
 
-To build the benchmark you need Java >= 19 (we tested on Java 20). This project depends on the development version of [ydb-jdbc-driver](https://github.com/ydb-platform/ydb-jdbc-driver):
+To build the benchmark you need Java >= 20. This project depends on the development version of [ydb-jdbc-driver](https://github.com/ydb-platform/ydb-jdbc-driver):
 1. Clone the ydb-jdbc-driver repository.
 2. Build and install the ydb-jdbc-driver:
 ```

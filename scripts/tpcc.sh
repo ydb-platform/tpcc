@@ -8,53 +8,27 @@ while [[ "$#" > 0 ]]; do case $1 in
     --memory)
         memory=$2
         shift;;
-    --virtual-threads)
-        vthreads=1
-        args+=("$1")
-        shift;;
     *)
         args+=("$1")
         ;;
 esac; shift; done
 
-if [[ -n $vthreads ]]; then
-    java_version=20
-else
-    java_version=17
-fi
+min_java_version=20
 
 if command -v java >/dev/null; then
-    java_version=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
+    java_version=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}' | awk -F '.' '{print $1}')
 
-    if [[ $java_version = "$java_version"* ]]; then
+    if [[ $java_version -ge $min_java_version ]]; then
         java="java"
     fi
 fi
 
 if [[ -z "$java" ]]; then
-    # check well known paths
-    if [[ -n $vthreads ]]; then
-        if [[ -x "/usr/lib/jvm/bellsoft-java20-runtime-amd64/bin/java" ]]; then
-            java="/usr/lib/jvm/bellsoft-java20-runtime-amd64/bin/java"
-        elif [[ -x "/usr/lib/jvm/java-17/bin/java" ]]; then
-            java="/usr/lib/jvm/java-17/bin/java"
-        fi
-    else
-        if [[ -x "/usr/lib/jvm/java-17-openjdk-amd64/bin/java" ]]; then
-            java="/usr/lib/jvm/java-17-openjdk-amd64/bin/java"
-        elif [[ -x "/usr/lib/jvm/java-17/bin/java" ]]; then
-            java="/usr/lib/jvm/java-17/bin/java"
-        fi
-    fi
-fi
-
-if [[ -z "$java" ]]; then
-    # try to find any appropriate java version
-    for d in /usr/lib/jvm/*; do
+    for d in /usr/lib/jvm/*${min_java_version}*; do
         java_check="$d/bin/java"
         if [[ -x $java_check ]]; then
-            java_version=$($java_check -version 2>&1 | awk -F '"' '/version/ {print $2}')
-            if [[ $java_version = "$java_version"* ]]; then
+            java_version=$($java_check -version 2>&1 | awk -F '"' '/version/ {print $2}' | awk -F '.' '{print $1}')
+            if [[ $java_version -ge $min_java_version ]]; then
                 java=$java_check
                 break
             fi
