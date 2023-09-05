@@ -108,7 +108,7 @@ public class ResultStats {
         return reprStr.toString();
     }
 
-    public class Histogram {
+    public static class Histogram {
         private int[] bucketlist;
         private int[] buckets;
 
@@ -180,7 +180,6 @@ public class ResultStats {
             StringBuilder json = new StringBuilder();
             json.append("{");
 
-            // Add bucketlist array to JSON
             json.append("\"bucketlist\": [");
             for (int i = 0; i < bucketlist.length; i++) {
                 json.append(bucketlist[i]);
@@ -190,7 +189,6 @@ public class ResultStats {
             }
             json.append("], ");
 
-            // Add buckets array to JSON
             json.append("\"buckets\": [");
             for (int i = 0; i < buckets.length; i++) {
                 json.append(buckets[i]);
@@ -220,7 +218,7 @@ public class ResultStats {
         }
     }
 
-    public class TransactionStats {
+    public static class TransactionStats {
         long successCount;
         long failedCount;
 
@@ -233,12 +231,12 @@ public class ResultStats {
         }
 
         public void addLatency(long startNanosecond, long endNanosecond, boolean isSuccess) {
-
+            int deltaMs = (int) ((endNanosecond - startNanosecond) / 1000000);
             if (isSuccess) {
-                latencySuccessHistogramMs.add((int) ((endNanosecond - startNanosecond) / 1000));
+                latencySuccessHistogramMs.add(deltaMs);
                 successCount++;
             } else {
-                latencyFailedHistogramMs.add((int) ((endNanosecond - startNanosecond) / 1000));
+                latencyFailedHistogramMs.add(deltaMs);
                 failedCount++;
             }
         }
