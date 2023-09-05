@@ -23,6 +23,8 @@ Above 1000 warehouses, the memory and CPU consumption grow linearly, you need:
 
 E.g. to run 10000 warehouses you need to have at least 10 cores and 64 GB RAM. However, Instead of running 10000 warehouses on a single instance (and machine), we recommend to run at most 5000 warehouses per instance (preferably on separate machines).
 
+To reduce memory consumption, make sure you don't use huge pages or transparent huge pages.
+
 # TPC-C benchmark for YDB
 
 ## How to build
