@@ -8,8 +8,7 @@ This is a fork of [BenchBase](https://github.com/cmu-db/benchbase), with the fol
 
 Short decriptions of branches:
 * main - the BenchBase with YDB support.
-* vanilla - the original BenchBase with performance enhancements.
-* postgres - vanilla with c3p0 as a connection pool.
+* vanilla - the original BenchBase with performance enhancements, including c3p0 as a connection pool for postgres.
 
 ## Hardware requirements
 
