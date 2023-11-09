@@ -60,4 +60,4 @@ Checkout postgres branch and execute the following command:
 
 ## How to run
 
-The simplest way is to use helper scripts from [benchhelpers](https://github.com/ydb-platform/benchhelpers/tpcc/ydb). You can find the full instruction [here](https://github.com/ydb-platform/benchhelpers/blob/main/tpcc/postgres/README.md).
+The simplest way is to use helper scripts from [benchhelpers](https://github.com/ydb-platform/benchhelpers). You can find the full instruction [here](https://github.com/ydb-platform/benchhelpers/blob/main/tpcc/postgres/README.md).
