@@ -26,6 +26,11 @@ import com.oltpbenchmark.util.SQLUtil;
 import com.oltpbenchmark.util.ScriptRunner;
 import com.oltpbenchmark.util.ThreadUtil;
 import org.apache.commons.lang3.StringUtils;
+import org.glassfish.jaxb.core.v2.schemagen.episode.Package;
+import org.hsqldb.lib.HashMap;
+import org.hsqldb.lib.HashSet;
+import org.hsqldb.lib.Map;
+import org.hsqldb.lib.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,6 +39,9 @@ import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.concurrent.Semaphore;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.*;
 
 /**
@@ -42,6 +50,17 @@ import java.util.*;
 public abstract class BenchmarkModule {
     private static final Logger LOG = LoggerFactory.getLogger(BenchmarkModule.class);
 
+
+    // We use virtual threads. There is a limitted number of c3p0 provided connections.
+    // When c3p0 runs out of connections, it will block until one is available. Block in a way
+    // that carrier threads are blocked. Same time other virtual threads holding connections
+    // might be parked waiting for a carrier thread to be available. This will cause a deadlock.
+    // To avoid this, we use a semaphore to wait for a connection without blocking the carrier thread.
+    //
+    // TODO: currently this breaks all non TPC-C benchmarks,
+    // because they have to call returnConnection() now
+    private static Semaphore connectionSemaphore;
+    private static int defaultMaxConnections = 100;
 
     /**
      * The workload configuration for this benchmark invocation
@@ -72,6 +91,23 @@ public abstract class BenchmarkModule {
     public BenchmarkModule(WorkloadConfiguration workConf) {
         this.workConf = workConf;
         this.dialects = new StatementDialects(workConf);
+
+        String url = workConf.getUrl();
+        Pattern pattern = Pattern.compile("sessionPoolSizeMax=([0-9]+)");
+        Matcher matcher = pattern.matcher(url);
+        if (matcher.find()) {
+            String strValue = matcher.group(1);
+            try {
+                int intValue = Integer.parseInt(strValue);
+                connectionSemaphore = new Semaphore(intValue);
+            } catch (NumberFormatException e) {
+                System.err.println("Error parsing sessionPoolSizeMax: " + strValue);
+                System.exit(1);
+            }
+        } else {
+            connectionSemaphore = new Semaphore(defaultMaxConnections);
+        }
+
     }
 
     // --------------------------------------------------------------------------
@@ -79,15 +115,29 @@ public abstract class BenchmarkModule {
     // --------------------------------------------------------------------------
 
     public final Connection makeConnection() throws SQLException {
+        try {
+            connectionSemaphore.acquire();
 
-        if (StringUtils.isEmpty(workConf.getUsername())) {
-            return DriverManager.getConnection(workConf.getUrl());
-        } else {
-            return DriverManager.getConnection(
-                    workConf.getUrl(),
-                    workConf.getUsername(),
-                    workConf.getPassword());
+            if (StringUtils.isEmpty(workConf.getUsername())) {
+                return DriverManager.getConnection(workConf.getUrl());
+            } else {
+                return DriverManager.getConnection(
+                        workConf.getUrl(),
+                        workConf.getUsername(),
+                        workConf.getPassword());
+            }
+
+        } catch (SQLException e) {
+            connectionSemaphore.release();
+            throw e;
+        } catch (InterruptedException e) {
+            connectionSemaphore.release();
+            throw new SQLException(e);
         }
+    }
+
+    public final void returnConnection() {
+        connectionSemaphore.release();
     }
 
     // --------------------------------------------------------------------------
