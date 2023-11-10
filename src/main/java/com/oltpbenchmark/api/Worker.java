@@ -502,6 +502,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                             LOG.debug("Worker {} closing connection", id);
                             this.conn.close();
                             this.conn = null;
+                            this.benchmark.returnConnection();
                         } catch (SQLException e) {
                             LOG.error("Worker {} connection couldn't be closed.", id, e);
                         }
@@ -583,6 +584,8 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
         if (!this.configuration.getNewConnectionPerTxn() && this.conn != null) {
             try {
                 conn.close();
+                this.conn = null;
+                this.benchmark.returnConnection();
             } catch (SQLException e) {
                 LOG.error("Worker {} connection couldn't be closed.", id, e);
             }
