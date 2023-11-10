@@ -353,7 +353,7 @@ public class ThreadBench implements Thread.UncaughtExceptionHandler {
     @Override
     public void uncaughtException(Thread t, Throwable e) {
         // Here we handle the case in which one of our worker threads died
-        LOG.error(e.getMessage(), e);
+        LOG.error("Uncaught exception: {}", e.getMessage(), e);
         // We do not continue with the experiment. Instead, bypass rest of
         // phases that were left in the test and signal error state.
         // The rest of the workflow to finish the experiment remains the same,
