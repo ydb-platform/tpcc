@@ -181,7 +181,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                 this.currStatement.cancel();
             }
         } catch (SQLException e) {
-            LOG.error("Failed to cancel statement: {}", e.getMessage());
+            LOG.error("worker {} failed to cancel statement: {}", id, e.getMessage());
         }
     }
 
@@ -237,9 +237,9 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                     long maxDelay = 2000 * warmup / 3;
                     try {
                         Thread.sleep(ThreadLocalRandom.current().nextLong(maxDelay));
-                        LOG.debug("Thread started");
+                        LOG.debug("Worker {} thread started", id);
                     } catch (InterruptedException e) {
-                        LOG.error("Pre-start sleep interrupted", e);
+                        LOG.error("Worker {} pre-start sleep interrupted", id, e);
                     }
                 }
             }
@@ -265,7 +265,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                 case DONE, EXIT, LATENCY_COMPLETE -> {
                     // Once a latency run is complete, we wait until the next
                     // phase or until DONE.
-                    LOG.warn("preState is {}? will continue...", preState);
+                    LOG.warn("preState {} will continue...", preState);
                     continue;
                 }
                 default -> {
@@ -289,11 +289,13 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
 
                 if (preExecutionWaitInMillis > 0) {
                     try {
-                        LOG.debug("{} will sleep for {} ms before executing", transactionType.getName(), preExecutionWaitInMillis);
+                        LOG.debug("Worker {}: {} will sleep for {} ms before executing",
+                            id, transactionType.getName(), preExecutionWaitInMillis);
 
                         Thread.sleep(preExecutionWaitInMillis);
+                        LOG.debug("Worker {} woke up to execute {}", id, transactionType.getName());
                     } catch (InterruptedException e) {
-                        LOG.error("Pre-execution sleep interrupted", e);
+                        LOG.error("Worker {} pre-execution sleep interrupted", id, e);
                     }
                 }
 
@@ -354,11 +356,12 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
 
                 if (postExecutionWaitInMillis > 0) {
                     try {
-                        LOG.debug("{} will sleep for {} ms after executing", transactionType.getName(), postExecutionWaitInMillis);
+                        LOG.debug("Worker {} {} will sleep for {} ms after executing",
+                            id, transactionType.getName(), postExecutionWaitInMillis);
 
                         Thread.sleep(postExecutionWaitInMillis);
                     } catch (InterruptedException e) {
-                        LOG.error("Post-execution sleep interrupted", e);
+                        LOG.error("Worker {} post-execution sleep interrupted", id, e);
                     }
                 }
             }
@@ -366,7 +369,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
             workloadState.finishedWork();
         }
 
-        LOG.debug("worker calling teardown");
+        LOG.debug("Worker {} calling teardown", id);
 
         tearDown();
     }
@@ -378,19 +381,19 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
             type = transactionTypes.getType(pieceOfWork.getType());
         } catch (IndexOutOfBoundsException e) {
             if (phase.isThroughputRun()) {
-                LOG.error("Thread tried executing disabled phase!");
+                LOG.error("Worker {} thread tried executing disabled phase!", id);
                 throw e;
             }
             if (phase.getId() == workloadState.getCurrentPhase().getId()) {
                 switch (state) {
                     case WARMUP -> {
                         // Don't quit yet: we haven't even begun!
-                        LOG.info("[Serial] Resetting serial for phase.");
+                        LOG.info("Worker {} [Serial] Resetting serial for phase.", id);
                         phase.resetSerial();
                     }
                     case COLD_QUERY, MEASURE -> {
                         // The serial phase is over. Finish the run early.
-                        LOG.info("[Serial] Updating workload state to {}.", State.LATENCY_COMPLETE);
+                        LOG.info("Worker {} [Serial] Updating workload state to {}.", id, State.LATENCY_COMPLETE);
                         workloadState.signalLatencyComplete();
                     }
                     default -> throw e;
@@ -422,13 +425,12 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
 
                 if (this.conn == null) {
                     try {
+                        LOG.debug("Worker {} opening a new connection", id);
                         this.conn = this.benchmark.makeConnection();
                         this.conn.setAutoCommit(false);
                         this.conn.setTransactionIsolation(this.configuration.getIsolationMode());
                     } catch (SQLException ex) {
-                        if (LOG.isDebugEnabled()) {
-                            LOG.debug(String.format("%s failed to open a connection...", this));
-                        }
+                        LOG.debug("Worker {} failed to open a connection: {}", id, ex);
                         retryCount++;
                         continue;
                     }
@@ -436,19 +438,12 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
 
                 try {
 
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug(String.format("%s %s attempting...", this, transactionType));
-                    }
+                    LOG.debug("Worker {} is attempting {}", id, transactionType);
 
                     status = this.executeWork(conn, transactionType);
 
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug(String.format("%s %s completed with status [%s]...", this, transactionType, status.name()));
-                    }
-
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug(String.format("%s %s committing...", this, transactionType));
-                    }
+                    LOG.debug("Worker {} completed {} with status {} and going to commit",
+                        id, transactionType, status.name());
 
                     conn.commit();
 
@@ -461,13 +456,13 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                         status = TransactionStatus.USER_ABORTED;
                     } catch (Exception e) {
                         LOG.warn(
-                            String.format("Failed to rollback transaction after UserAbortException (%s): %s",
-                                          ex.toString(), e.toString()));
+                            "Worker {} failed to rollback transaction after UserAbortException ({}): {}",
+                            id, ex.toString(), e.toString());
 
                         status = TransactionStatus.ERROR;
                     }
 
-                    ABORT_LOG.debug(String.format("%s Aborted", transactionType), ex);
+                    ABORT_LOG.debug("{} Aborted", transactionType, ex);
 
 
                     break;
@@ -475,21 +470,26 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                 } catch (SQLException ex) {
                     // TODO: probably check exception and retry if possible
                     try {
+                        LOG.debug("Worker {} rolled back transaction {}", id, transactionType);
                         conn.rollback();
                     } catch (Exception e) {
                         LOG.warn(
-                            String.format("Failed to rollback transaction after SQLException (%s): %s",
-                                          ex.toString(), e.toString()));
+                            "Worker {} failed to rollback transaction after SQLException ({}): {}",
+                            id, ex.toString(), e.toString());
                     }
 
                     if (isRetryable(ex)) {
-                        LOG.debug(String.format("Retryable SQLException occurred during [%s]... current retry attempt [%d], max retry attempts [%d], sql state [%s], error code [%d].", transactionType, retryCount, maxRetryCount, ex.getSQLState(), ex.getErrorCode()), ex);
+                        LOG.debug(
+                            "Worker {} Retryable SQLException occurred during [{}]... current retry attempt [{}], max retry attempts [{}], sql state [{}], error code [{}].",
+                            id, transactionType, retryCount, maxRetryCount, ex.getSQLState(), ex.getErrorCode(), ex);
 
                         status = TransactionStatus.RETRY;
 
                         retryCount++;
                     } else {
-                        LOG.warn(String.format("SQLException occurred during [%s] and will not be retried... sql state [%s], error code [%d].", transactionType, ex.getSQLState(), ex.getErrorCode()), ex);
+                        LOG.warn(
+                            "Worker {} SQLException occurred during [{}] and will not be retried... sql state [{}], error code [{}].",
+                            id, transactionType, ex.getSQLState(), ex.getErrorCode(), ex);
 
                         status = TransactionStatus.ERROR;
 
@@ -499,10 +499,11 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                 } finally {
                     if (this.configuration.getNewConnectionPerTxn() && this.conn != null) {
                         try {
+                            LOG.debug("Worker {} closing connection", id);
                             this.conn.close();
                             this.conn = null;
                         } catch (SQLException e) {
-                            LOG.error("Connection couldn't be closed.", e);
+                            LOG.error("Worker {} connection couldn't be closed.", id, e);
                         }
                     }
 
@@ -519,9 +520,8 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
 
             }
         } catch (RuntimeException ex) {
-            String msg = String.format("Unexpected RuntimeException in '%s' when executing '%s' on [%s]: %s",
-                                       this, transactionType, databaseType.name(), ex.toString());
-            LOG.error(msg);
+            LOG.error("Worker {} Unexpected RuntimeException when executing '%s' on [%s]: %s",
+                id, transactionType, databaseType.name(), ex.toString(), ex);
             throw ex;
         }
 
@@ -533,7 +533,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
         String sqlState = ex.getSQLState();
         int errorCode = ex.getErrorCode();
 
-        LOG.debug("sql state [{}] and error code [{}]", sqlState, errorCode);
+        LOG.debug("Worker {} sql state [{}] and error code [{}]", id, sqlState, errorCode);
 
         if (sqlState == null) {
             return false;
@@ -584,7 +584,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
             try {
                 conn.close();
             } catch (SQLException e) {
-                LOG.error("Connection couldn't be closed.", e);
+                LOG.error("Worker {} connection couldn't be closed.", id, e);
             }
         }
     }
