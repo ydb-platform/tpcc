@@ -13,7 +13,7 @@ while [[ "$#" > 0 ]]; do case $1 in
         ;;
 esac; shift; done
 
-min_java_version=20
+min_java_version=21
 
 if command -v java >/dev/null; then
     java_version=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}' | awk -F '.' '{print $1}')
@@ -41,4 +41,4 @@ if [[ -z "$java" ]]; then
     exit 1
 fi
 
-$java --enable-preview -Xmx$memory -jar benchbase.jar -b tpcc "${args[@]}"
+$java -Xmx$memory -jar benchbase.jar -b tpcc "${args[@]}"
