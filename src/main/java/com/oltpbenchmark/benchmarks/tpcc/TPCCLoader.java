@@ -18,7 +18,7 @@
 
 package com.oltpbenchmark.benchmarks.tpcc;
 
-import tech.ydb.jdbc.connection.YdbContext;
+import tech.ydb.jdbc.context.YdbContext;
 import tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
 import tech.ydb.jdbc.exception.YdbRetryableException;
 import tech.ydb.jdbc.YdbConnection;

@@ -31,14 +31,7 @@ To reduce memory consumption, make sure you don't use huge pages or transparent 
 Prebuilt packages:
 * [benchbase-ydb.tgz](https://storage.yandexcloud.net/ydb-benchmark-builds/benchbase-ydb.tgz)
 
-To build the benchmark you need Java >= 21. This project depends on the development version of [ydb-jdbc-driver](https://github.com/ydb-platform/ydb-jdbc-driver):
-1. Clone the ydb-jdbc-driver repository.
-2. Build and install the ydb-jdbc-driver:
-```
-mvn clean install -DskipTests
-```
-
-Next, to build the benchbase-ydb package, execute the following command:
+To build the benchmark you need Java >= 21. To build the benchbase-ydb package, execute the following command:
 ```
 ./mvnw clean package -P ydb -DskipTests
 ```

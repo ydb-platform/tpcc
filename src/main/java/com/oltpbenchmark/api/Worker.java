@@ -29,8 +29,7 @@ import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import tech.ydb.jdbc.exception.YdbExecutionStatusException;
-import tech.ydb.core.StatusCode;
+import tech.ydb.jdbc.exception.YdbStatusException;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -530,10 +529,10 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                     break;
 
                 } catch (SQLException ex) {
-                    if  (ex instanceof YdbExecutionStatusException) {
+                    if  (ex instanceof YdbStatusException) {
                         YDB_ERRORS.tag("type", "any")
                                 .register(Metrics.globalRegistry).increment();
-                        YDB_ERRORS.tag("type", ((YdbExecutionStatusException)ex).getStatusCode().toString())
+                        YDB_ERRORS.tag("type", ((YdbStatusException)ex).getStatus().getCode().toString())
                                 .register(Metrics.globalRegistry).increment();
                     }
 
@@ -555,7 +554,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                         retryCount++;
 
                         if (retryCount <= maxRetryCount) {
-                            long sleepMs = backoffTimeMillis(((YdbExecutionStatusException)ex).getStatusCode(), retryCount);
+                            long sleepMs = backoffTimeMillis(((YdbStatusException)ex).getStatus().getCode(), retryCount);
                             try {
                                 Thread.sleep(sleepMs);
                             } catch (InterruptedException e) {
