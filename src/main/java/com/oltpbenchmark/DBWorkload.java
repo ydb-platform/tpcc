@@ -112,9 +112,9 @@ public class DBWorkload {
             startFromId = Integer.parseInt(argsLine.getOptionValue("sf"));
         }
 
-        int warehousesPerShard = 1;
-        if (argsLine.hasOption("whs")) {
-            warehousesPerShard = Integer.parseInt(argsLine.getOptionValue("whs"));
+        int totalWarehousesInCompany = 0;
+        if (argsLine.hasOption("totalwh")) {
+            totalWarehousesInCompany = Integer.parseInt(argsLine.getOptionValue("totalwh"));
         }
 
         if (argsLine.hasOption("rt")) {
@@ -155,7 +155,7 @@ public class DBWorkload {
             wrkld.setUsername(xmlConfig.getString("username"));
             wrkld.setPassword(xmlConfig.getString("password"));
             wrkld.setRandomSeed(xmlConfig.getInt("randomSeed", -1));
-            wrkld.setBatchSize(xmlConfig.getInt("batchsize", 128));
+            wrkld.setBatchSize(xmlConfig.getInt("batchsize", 1000));
 
             wrkld.setMaxRetries(xmlConfig.getInt("retries", wrkld.getMaxRetries()));
             wrkld.setFastBackoffSlotMillis(xmlConfig.getLong("fastBackoffSlotMillis", wrkld.getFastBackoffSlotMillis()));
@@ -169,7 +169,6 @@ public class DBWorkload {
             terminals = xmlConfig.getInt("terminals" + pluginTest, terminals);
             wrkld.setTerminals(terminals);
             wrkld.setStartFrom(startFromId);
-            wrkld.setWarehousesPerShard(warehousesPerShard);
 
             if (xmlConfig.containsKey("loaderThreads")) {
                 int loaderThreads = xmlConfig.getInt("loaderThreads");
@@ -182,6 +181,12 @@ public class DBWorkload {
             double scaleFactor = xmlConfig.getDouble("scalefactor", 1.0);
             numWarehouses = (int) scaleFactor;
             wrkld.setScaleFactor(scaleFactor);
+
+            if (totalWarehousesInCompany != 0) {
+                wrkld.setTotalWarehousesInCompany(totalWarehousesInCompany);
+            } else {
+                wrkld.setTotalWarehousesInCompany(numWarehouses);
+            }
 
             wrkld.setDataDir(xmlConfig.getString("datadir", "."));
             wrkld.setDDLPath(xmlConfig.getString("ddlpath", null));
@@ -551,7 +556,7 @@ public class DBWorkload {
         options.addOption(null, "dialects-export", true, "Export benchmark SQL to a dialects file");
         options.addOption("jh", "json-histograms", true, "Export histograms to JSON file");
         options.addOption("sf", "start-from-id", true, "Start from a specific scale instance id");
-        options.addOption("whs", "warehouses-per-shard", true, "Hint for loader to split warehouses across shards");
+        options.addOption("totalwh", "total-warehouses", true, "Total warehouses in company");
         options.addOption("nob", "no-bulk-load", false, "Don't use bulk upsert to load the data");
         options.addOption("rt", "real-threads", false, "Use real threads");
         return options;

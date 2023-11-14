@@ -55,7 +55,7 @@ public class WorkloadConfiguration {
     private double selectivity = -1.0;
     private int terminals;
     private int startFromId = 1;
-    private int warehousesPerShard = 1;
+    private int totalWarehousesInCompany = 0;
     private int loaderThreads = ThreadUtil.availableProcessors();
     private int warmupTime = 0;
     private XMLConfiguration xmlConfig = null;
@@ -330,12 +330,12 @@ public class WorkloadConfiguration {
         this.startFromId = startFromId;
     }
 
-    public int getWarehousesPerShard() {
-        return warehousesPerShard;
+    public int getTotalWarehousesInCompany() {
+        return totalWarehousesInCompany;
     }
 
-    public void setWarehousesPerShard(int warehousesPerShard) {
-        this.warehousesPerShard = warehousesPerShard;
+    public void setTotalWarehousesInCompany(int totalWarehousesInCompany) {
+        this.totalWarehousesInCompany = totalWarehousesInCompany;
     }
 
     public TransactionTypes getTransTypes() {
