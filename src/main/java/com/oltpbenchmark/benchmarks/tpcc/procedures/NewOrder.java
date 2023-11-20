@@ -135,21 +135,6 @@ public class NewOrder extends TPCCProcedure {
                                      int o_ol_cnt, int o_all_local, int[] itemIDs,
                                      int[] supplierWarehouseIDs, int[] orderQuantities, Connection conn) throws SQLException {
 
-
-        getCustomer(conn, w_id, d_id, c_id);
-
-        getWarehouse(conn, w_id);
-
-        int d_next_o_id = getDistrict(conn, w_id, d_id);
-
-        updateDistrict(conn, w_id, d_id, d_next_o_id + 1);
-
-        insertOpenOrder(conn, w_id, d_id, c_id, o_ol_cnt, o_all_local, d_next_o_id);
-
-        insertNewOrder(conn, w_id, d_id, d_next_o_id);
-
-        // TODO: insert VS upsert?
-
         String odreLinesql = "" +
             "declare $values as List<Struct<p1:Int32,p2:Int32,p3:Int32,p4:Int32,p5:Int32," +
             "p6:Timestamp,p7:Double,p8:Int32,p9:Double,p10:Utf8>>;\n" +
@@ -167,8 +152,22 @@ public class NewOrder extends TPCCProcedure {
             "$row.p6 as S_REMOTE_CNT));\n" +
             "upsert into " + TPCCConstants.TABLENAME_STOCK + " select * from as_table(ListMap($values, $mapper));";
 
+        // we intentionally prepare statement before the first data transaction:
+        // see https://github.com/ydb-platform/ydb-jdbc-driver/issues/32
         try (PreparedStatement stmtUpdateStock = conn.prepareStatement(stockSql);
              PreparedStatement stmtInsertOrderLine = conn.prepareStatement(odreLinesql)) {
+
+            getCustomer(conn, w_id, d_id, c_id);
+
+            getWarehouse(conn, w_id);
+
+            int d_next_o_id = getDistrict(conn, w_id, d_id);
+
+            updateDistrict(conn, w_id, d_id, d_next_o_id + 1);
+
+            insertOpenOrder(conn, w_id, d_id, c_id, o_ol_cnt, o_all_local, d_next_o_id);
+
+            insertNewOrder(conn, w_id, d_id, d_next_o_id);
 
             for (int ol_number = 1; ol_number <= o_ol_cnt; ol_number++) {
                 int ol_supply_w_id = supplierWarehouseIDs[ol_number - 1];

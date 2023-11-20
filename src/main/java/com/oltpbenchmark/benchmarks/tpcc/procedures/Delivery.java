@@ -96,61 +96,70 @@ public class Delivery extends TPCCProcedure {
 
         int d_id;
 
+        String updateDeliverySql = "" +
+            "declare $values as List<Struct<p1:Int,p2:Int32,p3:Int32,p4:Int32,p5:Timestamp>>;\n" +
+            "$mapper = ($row) -> (AsStruct($row.p1 as OL_W_ID, $row.p2 as OL_D_ID, $row.p3 as OL_O_ID, " +
+            "$row.p4 as OL_NUMBER, $row.p5 as OL_DELIVERY_D));\n" +
+            "upsert into " + TPCCConstants.TABLENAME_ORDERLINE + " select * from as_table(ListMap($values, $mapper));";
 
-        // note that we at first read everything and then update.
-        // This helps to avoid requirement on transaction to be able to
-        // read own modifications
+        // we intentionally prepare statement before the first data transaction:
+        // see https://github.com/ydb-platform/ydb-jdbc-driver/issues/32
+        try (PreparedStatement delivUpdateDeliveryDate = conn.prepareStatement(updateDeliverySql)) {
+            // note that we at first read everything and then update.
+            // This helps to avoid requirement on transaction to be able to
+            // read own modifications
+            // UPD: this is not needed anymore, but we still do it to be
 
-        Data[] orders = new Data[TPCCConfig.configDistPerWhse];
-        for (d_id = 1; d_id <= terminalDistrictUpperID; d_id++) {
-            Integer no_o_id = getOrderId(conn, w_id, d_id);
+            Data[] orders = new Data[TPCCConfig.configDistPerWhse];
+            for (d_id = 1; d_id <= terminalDistrictUpperID; d_id++) {
+                Integer no_o_id = getOrderId(conn, w_id, d_id);
 
-            if (no_o_id == null) {
-                orders[d_id - 1] = null;
-                continue;
-            }
-
-            orders[d_id - 1] = new Data();
-            orders[d_id - 1].orderId = no_o_id;
-            orders[d_id - 1].customerData = getCustomerData(conn, w_id, d_id, no_o_id);
-            orders[d_id - 1].orderLineData = getOrderLineData(conn, w_id, d_id, no_o_id);
-        }
-
-        for (d_id = 1; d_id <= terminalDistrictUpperID; d_id++) {
-            if (orders[d_id - 1] == null) {
-                continue;
-            }
-
-            deleteOrder(conn, w_id, d_id, orders[d_id - 1].orderId);
-            updateCarrierId(conn, w_id, o_carrier_id, d_id, orders[d_id - 1].orderId);
-            updateDeliveryDate(conn, w_id, d_id, orders[d_id - 1]);
-            updateBalanceAndDelivery(conn, w_id, d_id, orders[d_id - 1]);
-        }
-
-        if (LOG.isTraceEnabled()) {
-            StringBuilder terminalMessage = new StringBuilder();
-            terminalMessage.append("\n+---------------------------- DELIVERY ---------------------------+\n");
-            terminalMessage.append(" Date: ");
-            terminalMessage.append(TPCCUtil.getCurrentTime());
-            terminalMessage.append("\n\n Warehouse: ");
-            terminalMessage.append(w_id);
-            terminalMessage.append("\n Carrier:   ");
-            terminalMessage.append(o_carrier_id);
-            terminalMessage.append("\n\n Delivered Orders\n");
-            for (int i = 1; i <= TPCCConfig.configDistPerWhse; i++) {
-                if (orders[i - 1] != null && orders[i - 1].orderId  >= 0) {
-                    terminalMessage.append("  District ");
-                    terminalMessage.append(i < 10 ? " " : "");
-                    terminalMessage.append(i);
-                    terminalMessage.append(": Order number ");
-                    terminalMessage.append(orders[i - 1].orderId);
-                    terminalMessage.append(" was delivered.\n");
+                if (no_o_id == null) {
+                    orders[d_id - 1] = null;
+                    continue;
                 }
-            }
-            terminalMessage.append("+-----------------------------------------------------------------+\n\n");
-            LOG.trace(terminalMessage.toString());
-        }
 
+                orders[d_id - 1] = new Data();
+                orders[d_id - 1].orderId = no_o_id;
+                orders[d_id - 1].customerData = getCustomerData(conn, w_id, d_id, no_o_id);
+                orders[d_id - 1].orderLineData = getOrderLineData(conn, w_id, d_id, no_o_id);
+            }
+
+            for (d_id = 1; d_id <= terminalDistrictUpperID; d_id++) {
+                if (orders[d_id - 1] == null) {
+                    continue;
+                }
+
+                deleteOrder(conn, w_id, d_id, orders[d_id - 1].orderId);
+                updateCarrierId(conn, w_id, o_carrier_id, d_id, orders[d_id - 1].orderId);
+                updateDeliveryDate(delivUpdateDeliveryDate, w_id, d_id, orders[d_id - 1]);
+                updateBalanceAndDelivery(conn, w_id, d_id, orders[d_id - 1]);
+            }
+
+            if (LOG.isTraceEnabled()) {
+                StringBuilder terminalMessage = new StringBuilder();
+                terminalMessage.append("\n+---------------------------- DELIVERY ---------------------------+\n");
+                terminalMessage.append(" Date: ");
+                terminalMessage.append(TPCCUtil.getCurrentTime());
+                terminalMessage.append("\n\n Warehouse: ");
+                terminalMessage.append(w_id);
+                terminalMessage.append("\n Carrier:   ");
+                terminalMessage.append(o_carrier_id);
+                terminalMessage.append("\n\n Delivered Orders\n");
+                for (int i = 1; i <= TPCCConfig.configDistPerWhse; i++) {
+                    if (orders[i - 1] != null && orders[i - 1].orderId  >= 0) {
+                        terminalMessage.append("  District ");
+                        terminalMessage.append(i < 10 ? " " : "");
+                        terminalMessage.append(i);
+                        terminalMessage.append(": Order number ");
+                        terminalMessage.append(orders[i - 1].orderId);
+                        terminalMessage.append(" was delivered.\n");
+                    }
+                }
+                terminalMessage.append("+-----------------------------------------------------------------+\n\n");
+                LOG.trace(terminalMessage.toString());
+            }
+        }
     }
 
     private Integer getOrderId(Connection conn, int w_id, int d_id) throws SQLException {
@@ -261,28 +270,22 @@ public class Delivery extends TPCCProcedure {
         }
     }
 
-    private void updateDeliveryDate(Connection conn, int w_id, int d_id, Data data) throws SQLException {
+    private void updateDeliveryDate(PreparedStatement statement, int w_id, int d_id, Data data) throws SQLException {
         Timestamp timestamp = new Timestamp(System.currentTimeMillis());
-        String sql = "" +
-            "declare $values as List<Struct<p1:Int,p2:Int32,p3:Int32,p4:Int32,p5:Timestamp>>;\n" +
-            "$mapper = ($row) -> (AsStruct($row.p1 as OL_W_ID, $row.p2 as OL_D_ID, $row.p3 as OL_O_ID, " +
-            "$row.p4 as OL_NUMBER, $row.p5 as OL_DELIVERY_D));\n" +
-            "upsert into " + TPCCConstants.TABLENAME_ORDERLINE + " select * from as_table(ListMap($values, $mapper));";
+        statement.clearBatch();
 
-        try (PreparedStatement delivUpdateDeliveryDate = conn.prepareStatement(sql)) {
-            for (int lineNum : data.orderLineData.LineNumbers) {
-                int idx = 1;
-                delivUpdateDeliveryDate.setInt(idx++, w_id);
-                delivUpdateDeliveryDate.setInt(idx++, d_id);
-                delivUpdateDeliveryDate.setInt(idx++, data.orderId);
-                delivUpdateDeliveryDate.setInt(idx++, lineNum);
-                delivUpdateDeliveryDate.setTimestamp(idx, timestamp);
-                delivUpdateDeliveryDate.addBatch();
-            }
-
-            delivUpdateDeliveryDate.executeBatch();
-            delivUpdateDeliveryDate.clearBatch();
+        for (int lineNum : data.orderLineData.LineNumbers) {
+            int idx = 1;
+            statement.setInt(idx++, w_id);
+            statement.setInt(idx++, d_id);
+            statement.setInt(idx++, data.orderId);
+            statement.setInt(idx++, lineNum);
+            statement.setTimestamp(idx, timestamp);
+            statement.addBatch();
         }
+
+        statement.executeBatch();
+        statement.clearBatch();
     }
 
     private OrderLineData getOrderLineData(Connection conn, int w_id, int d_id, int no_o_id) throws SQLException {
