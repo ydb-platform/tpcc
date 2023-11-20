@@ -29,8 +29,10 @@ import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import tech.ydb.jdbc.exception.YdbExecutionStatusException;
+import tech.ydb.core.Status;
 import tech.ydb.core.StatusCode;
+import tech.ydb.core.UnexpectedResultException;
+import tech.ydb.jdbc.exception.YdbExecutionStatusException;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -529,7 +531,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
 
                     break;
 
-                } catch (SQLException ex) {
+                } catch (SQLException | UnexpectedResultException ex) {
                     if  (ex instanceof YdbExecutionStatusException) {
                         YDB_ERRORS.tag("type", "any")
                                 .register(Metrics.globalRegistry).increment();
@@ -544,28 +546,44 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                         LOG.warn("Failed to rollback transaction", e);
                     }
 
-                    Boolean isRetryable = ex instanceof tech.ydb.jdbc.exception.YdbRetryableException;
-                    isRetryable |= ex instanceof tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
+                    Boolean isRetryable = false;
+                    int errorCode = 0;
+                    if (ex instanceof tech.ydb.jdbc.exception.YdbRetryableException ||
+                            ex instanceof tech.ydb.jdbc.exception.YdbConditionallyRetryableException) {
+                        isRetryable = true;
+                        SQLException sqlEx = (SQLException) ex;
+                        errorCode = sqlEx.getErrorCode();
+                    } else if (ex instanceof UnexpectedResultException) {
+                        UnexpectedResultException ure = (UnexpectedResultException) ex;
+                        errorCode = ure.getStatus().getCode().getCode();
+                        isRetryable = ure.getStatus().getCode() == tech.ydb.core.StatusCode.CLIENT_RESOURCE_EXHAUSTED;
+                    }
+
                     if (isRetryable) {
                         LOG.debug(
-                            "Worker {} Retryable SQLException occurred during [{}]... current retry attempt [{}], max retry attempts [{}], sql state [{}], error code [{}].",
-                            id, transactionType, retryCount, maxRetryCount, ex.getSQLState(), ex.getErrorCode(), ex);
+                            "Worker {} Retryable SQLException occurred during [{}]... current retry attempt [{}], max retry attempts [{}], error code [{}].",
+                            id, transactionType, retryCount, maxRetryCount, errorCode, ex);
 
-                        status = TransactionStatus.RETRY;
                         retryCount++;
 
                         if (retryCount <= maxRetryCount) {
+                            status = TransactionStatus.RETRY;
                             long sleepMs = backoffTimeMillis(((YdbExecutionStatusException)ex).getStatusCode(), retryCount);
                             try {
                                 Thread.sleep(sleepMs);
                             } catch (InterruptedException e) {
                                 LOG.error("Retry sleep interrupted", e);
                             }
+                        } else {
+                            status = TransactionStatus.ERROR;
+                            LOG.warn(
+                                "Worker {} Retryable SQLException occurred during [{}]... current retry attempt [{}], max retry attempts [{}], error code [{}].",
+                                id, transactionType, retryCount, maxRetryCount, errorCode, ex);
                         }
                     } else {
                         LOG.warn(
-                            "Worker {} SQLException occurred during [{}] and will not be retried... sql state [{}], error code [{}].",
-                            id, transactionType, ex.getSQLState(), ex.getErrorCode(), ex);
+                            "Worker {} SQLException occurred during [{}] and will not be retried..., error code [{}].",
+                            id, transactionType, errorCode, ex);
 
                         status = TransactionStatus.ERROR;
 
@@ -604,8 +622,8 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                 }
 
             }
-        } catch (RuntimeException ex) {
-            String msg = String.format("Unexpected SQLException in '%s' when executing '%s' on [%s]", this, transactionType, databaseType.name());
+        } catch (Exception ex) {
+            String msg = String.format("Unexpected Exception in '%s' when executing '%s' on [%s]", this, transactionType, databaseType.name());
             LOG.error(msg);
             throw ex;
         }

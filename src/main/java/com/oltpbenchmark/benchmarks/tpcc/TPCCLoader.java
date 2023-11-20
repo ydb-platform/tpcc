@@ -25,7 +25,6 @@ import tech.ydb.jdbc.YdbConnection;
 
 import tech.ydb.core.Result;
 import tech.ydb.core.StatusCode;
-import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.table.query.DataQueryResult;
 import tech.ydb.table.query.Params;
 import tech.ydb.table.result.ResultSetReader;
