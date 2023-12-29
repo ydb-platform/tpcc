@@ -60,12 +60,12 @@ public class PostgresCollector extends DBCollector {
                     try (ResultSet out = s.executeQuery("SELECT * FROM " + viewName)) {
                         pgMetrics.put(viewName, getMetrics(out));
                     } catch (SQLException ex) {
-                        LOG.error("Error while collecting DB metric view: {}", ex.getMessage());
+                        LOG.error("Error while collecting DB metric view", ex);
                     }
                 }
             }
         } catch (SQLException e) {
-            LOG.error("Error while collecting DB parameters: {}", e.getMessage());
+            LOG.error("Error while collecting DB parameters", e);
         }
     }
 
