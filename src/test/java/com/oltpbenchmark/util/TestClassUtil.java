@@ -117,6 +117,7 @@ public class TestClassUtil extends TestCase {
                 Collection.class,
                 List.class,
                 RandomAccess.class,
+                SequencedCollection.class,
         };
         Collection<Class<?>> results = ClassUtil.getInterfaces(target_class);
         // System.err.println(target_class + " => " + results);
