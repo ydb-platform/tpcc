@@ -521,7 +521,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
 
             }
         } catch (RuntimeException ex) {
-            LOG.error("Worker {} Unexpected RuntimeException when executing '%s' on [%s]: %s",
+            LOG.error("Worker {} Unexpected RuntimeException occurred (to be re-thrown) during [{}] on [{}]: {}",
                 id, transactionType, databaseType.name(), ex.toString(), ex);
             throw ex;
         }
