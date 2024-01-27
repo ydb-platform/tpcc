@@ -51,16 +51,4 @@ The simplest way is to use helper scripts from [benchhelpers](https://github.com
 
 # TPC-C benchmark for PostgreSQL
 
-## How to build
-
-Checkout `postgres` branch and execute the following command:
-```
-./mvnw clean package -P postgres -DskipTests
-```
-
-Prebuilt packages:
-* [benchbase-postgres.tgz](https://storage.yandexcloud.net/ydb-benchmark-builds/benchbase-postgres.tgz)
-
-## How to run
-
-The simplest way is to use helper scripts from [benchhelpers](https://github.com/ydb-platform/benchhelpers). You can find the full instruction [here](https://github.com/ydb-platform/benchhelpers/blob/main/tpcc/postgres/README.md).
+Please refer to this [repository](https://github.com/ydb-platform/tpcc-postgres).
