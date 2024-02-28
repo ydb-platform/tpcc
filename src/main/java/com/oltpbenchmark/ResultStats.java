@@ -115,7 +115,13 @@ public class ResultStats {
         public Histogram() {
             // note, that because 5000 is here, we can calculate precisely number of transactions below
             // this value.
-            this(new int[]{1, 5, 10, 50, 100, 500, 1000, 2000, 3000, 4000, 4500, 5000, 6000, 10000});
+            this(new int[]{
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                16, 32, 64, 128, 256, 512,
+                1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000,
+                7000, 8000, 9000, 10000, 11000, 12000, 13000, 14000, 15000,
+                20000
+            });
         }
 
         public Histogram(int[] bucketlist) {
