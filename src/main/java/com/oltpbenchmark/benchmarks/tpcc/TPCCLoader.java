@@ -121,7 +121,6 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                     loadItems(ydbConnHelper, TPCCConfig.configItemCount);
                     loadWarehouses(ydbConnHelper, firstWarehouse, lastWarehouseInCompany);
                     loadDistricts(ydbConnHelper, firstWarehouse, lastWarehouseInCompany, TPCCConfig.configDistPerWhse);
-                    loadNewOrders(ydbConnHelper, firstWarehouse, lastWarehouseInCompany, TPCCConfig.configDistPerWhse, TPCCConfig.configCustPerDist);
                 }
             });
         }
@@ -155,9 +154,10 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
             t = new LoaderThread(this.benchmark) {
                 @Override
                 public void load(Connection conn) {
-                    LOG.debug("Starting to load order_line warehouses from {} to {}", loadFrom, loadUntil);
+                    LOG.debug("Starting to load order_line and new orders, warehouses from {} to {}", loadFrom, loadUntil);
 
                     YDBConnectionHelper ydbConnHelper = new YDBConnectionHelper(conn);
+                    loadNewOrders(ydbConnHelper, loadFrom, loadUntil, TPCCConfig.configDistPerWhse, TPCCConfig.configCustPerDist);
                     loadOrderLines(ydbConnHelper, loadFrom, loadUntil, TPCCConfig.configDistPerWhse, TPCCConfig.configCustPerDist);
                 }
             };
@@ -166,7 +166,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
             t = new LoaderThread(this.benchmark) {
                 @Override
                 public void load(Connection conn) {
-                    LOG.debug("Starting to load history and open orders warehouses from {} to {}", loadFrom, loadUntil);
+                    LOG.debug("Starting to load history and open orders, warehouses from {} to {}", loadFrom, loadUntil);
 
                     YDBConnectionHelper ydbConnHelper = new YDBConnectionHelper(conn);
 
