@@ -28,14 +28,15 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import tech.ydb.core.Status;
 import tech.ydb.core.StatusCode;
 import tech.ydb.core.UnexpectedResultException;
-import tech.ydb.jdbc.exception.YdbExecutionStatusException;
+import tech.ydb.jdbc.exception.YdbStatusable;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.SQLRecoverableException;
+import java.sql.SQLTransientException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.HashMap;
@@ -532,12 +533,24 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                     break;
 
                 } catch (SQLException | UnexpectedResultException ex) {
-                    if  (ex instanceof YdbExecutionStatusException) {
-                        YDB_ERRORS.tag("type", "any")
-                                .register(Metrics.globalRegistry).increment();
-                        YDB_ERRORS.tag("type", ((YdbExecutionStatusException)ex).getStatusCode().toString())
-                                .register(Metrics.globalRegistry).increment();
+                    Status error = Status.of(StatusCode.CLIENT_INTERNAL_ERROR);
+                    int errorCode = error.getCode().getCode();
+                    boolean isRetryable  = false;
+                    if  (ex instanceof SQLException) {
+                        errorCode = ((SQLException)ex).getErrorCode();
+                        isRetryable = ex instanceof SQLRecoverableException || ex instanceof SQLTransientException;
+                        if (ex instanceof YdbStatusable) {
+                            error = ((YdbStatusable)ex).getStatus();
+                        }
                     }
+                    if (ex instanceof UnexpectedResultException) {
+                        error = ((UnexpectedResultException) ex).getStatus();
+                        errorCode = error.getCode().getCode();
+                        isRetryable = error.getCode().isRetryable(true);
+                    }
+
+                    YDB_ERRORS.tag("type", "any").register(Metrics.globalRegistry).increment();
+                    YDB_ERRORS.tag("type", error.getCode().toString()).register(Metrics.globalRegistry).increment();
 
                     try {
                         LOG.debug("Worker {} rolled back transaction {}", id, transactionType);
@@ -546,18 +559,6 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                         LOG.warn("Failed to rollback transaction", e);
                     }
 
-                    Boolean isRetryable = false;
-                    int errorCode = 0;
-                    if (ex instanceof tech.ydb.jdbc.exception.YdbRetryableException ||
-                            ex instanceof tech.ydb.jdbc.exception.YdbConditionallyRetryableException) {
-                        isRetryable = true;
-                        SQLException sqlEx = (SQLException) ex;
-                        errorCode = sqlEx.getErrorCode();
-                    } else if (ex instanceof UnexpectedResultException) {
-                        UnexpectedResultException ure = (UnexpectedResultException) ex;
-                        errorCode = ure.getStatus().getCode().getCode();
-                        isRetryable = ure.getStatus().getCode() == tech.ydb.core.StatusCode.CLIENT_RESOURCE_EXHAUSTED;
-                    }
 
                     if (isRetryable) {
                         LOG.debug(
@@ -568,7 +569,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
 
                         if (retryCount <= maxRetryCount) {
                             status = TransactionStatus.RETRY;
-                            long sleepMs = backoffTimeMillis(((YdbExecutionStatusException)ex).getStatusCode(), retryCount);
+                            long sleepMs = backoffTimeMillis(error.getCode(), retryCount);
                             try {
                                 Thread.sleep(sleepMs);
                             } catch (InterruptedException e) {
@@ -651,7 +652,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
             configuration.getFastBackoffCeiling());
     }
 
-    private long backoffTimeMillis(tech.ydb.core.StatusCode code, int retryNumber) {
+    private long backoffTimeMillis(StatusCode code, int retryNumber) {
         switch (code) {
             case BAD_SESSION:
                 // Instant retry
