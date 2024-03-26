@@ -180,12 +180,6 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
         return (threads);
     }
 
-    private PreparedStatement getInsertStatement(Connection conn, String tableName) throws SQLException {
-        Table catalog_tbl = benchmark.getCatalog().getTable(tableName);
-        String sql = SQLUtil.getInsertSQL(catalog_tbl, this.getDatabaseType());
-        return conn.prepareStatement(sql);
-    }
-
     protected void loadItems(YDBConnectionHelper ydbConnHelper, int itemCount) {
         final Map<String, Type> ydbTypes = new HashMap<>();
         ydbTypes.put("I_ID", PrimitiveType.Int32);
