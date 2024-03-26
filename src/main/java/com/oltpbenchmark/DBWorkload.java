@@ -475,9 +475,11 @@ public class DBWorkload {
         }
 
         // Refresh the catalog.
+/* TODO: it's unclear if we really need this. Causes some weird permission issues on some setups.
         for (BenchmarkModule benchmark : benchList) {
             benchmark.refreshCatalog();
         }
+*/
 
         // Clear the Benchmark's Database
         if (isBooleanOptionSet(argsLine, "clear")) {
