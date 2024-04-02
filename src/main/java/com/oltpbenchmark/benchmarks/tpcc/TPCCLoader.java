@@ -18,38 +18,21 @@
 
 package com.oltpbenchmark.benchmarks.tpcc;
 
-import tech.ydb.jdbc.connection.YdbContext;
-import tech.ydb.jdbc.exception.YdbConditionallyRetryableException;
-import tech.ydb.jdbc.exception.YdbRetryableException;
 import tech.ydb.jdbc.YdbConnection;
 
-import tech.ydb.core.Result;
-import tech.ydb.core.StatusCode;
-import tech.ydb.table.query.DataQueryResult;
-import tech.ydb.table.query.Params;
-import tech.ydb.table.result.ResultSetReader;
-import tech.ydb.table.Session;
 import tech.ydb.table.SessionRetryContext;
 import tech.ydb.table.TableClient;
-import tech.ydb.table.transaction.TxControl;
-
 import tech.ydb.table.values.ListType;
 import tech.ydb.table.values.ListValue;
-import tech.ydb.table.values.OptionalType;
-import tech.ydb.table.values.OptionalValue;
 import tech.ydb.table.values.PrimitiveType;
 import tech.ydb.table.values.PrimitiveValue;
 import tech.ydb.table.values.StructType;
-import tech.ydb.table.values.StructValue;
 import tech.ydb.table.values.Type;
 import tech.ydb.table.values.Value;
 
 import com.oltpbenchmark.api.Loader;
 import com.oltpbenchmark.api.LoaderThread;
 import com.oltpbenchmark.benchmarks.tpcc.pojo.*;
-import com.oltpbenchmark.catalog.Table;
-import com.oltpbenchmark.util.ThreadLocalRandomGenerator;
-import com.oltpbenchmark.util.SQLUtil;
 
 import java.time.Duration;
 import java.sql.*;
@@ -59,7 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 
 /**
  * TPC-C Benchmark Loader
@@ -70,7 +52,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
     private static final int BACKOFF_CEILING = 5;
     private static final int MAX_RETRIES = 100;
 
-    private class YDBConnectionHelper {
+    public final class YDBConnectionHelper {
         private final YdbConnection ydbConn;
         private final TableClient tableClient;
         private final SessionRetryContext retryCtx;
@@ -538,7 +520,6 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                 for (int d = 1; d <= districtsPerWarehouse; d++) {
                     for (int c = 1; c <= customersPerDistrict; c++) {
                         long millis = System.currentTimeMillis();
-                        Timestamp sysdate = new Timestamp(millis);
                         long ts = System.nanoTime();
                         if (ts <= prevTs) {
                             ts = prevTs + 1;

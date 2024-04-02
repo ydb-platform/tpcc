@@ -47,6 +47,8 @@ java_*.hprof*
 /nbdist/
 /.nb-gradle/
 build/
+nbactions-ydb.xml
+nbactions.xml
 
 ### VS Code ###
 .vscode/

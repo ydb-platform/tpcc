@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
 import tech.ydb.core.Status;
 import tech.ydb.core.StatusCode;
 import tech.ydb.core.UnexpectedResultException;
-import tech.ydb.jdbc.exception.YdbExecutionStatusException;
+import tech.ydb.jdbc.exception.YdbSQLException;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -532,10 +532,10 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
                     break;
 
                 } catch (SQLException | UnexpectedResultException ex) {
-                    if  (ex instanceof YdbExecutionStatusException) {
+                    if  (ex instanceof YdbSQLException) {
                         YDB_ERRORS.tag("type", "any")
                                 .register(Metrics.globalRegistry).increment();
-                        YDB_ERRORS.tag("type", ((YdbExecutionStatusException)ex).getStatusCode().toString())
+                        YDB_ERRORS.tag("type", ((YdbSQLException)ex).getStatus().toString())
                                 .register(Metrics.globalRegistry).increment();
                     }
 
@@ -568,7 +568,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
 
                         if (retryCount <= maxRetryCount) {
                             status = TransactionStatus.RETRY;
-                            long sleepMs = backoffTimeMillis(((YdbExecutionStatusException)ex).getStatusCode(), retryCount);
+                            long sleepMs = backoffTimeMillis(((YdbSQLException)ex).getStatus().getCode(), retryCount);
                             try {
                                 Thread.sleep(sleepMs);
                             } catch (InterruptedException e) {
