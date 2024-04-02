@@ -20,6 +20,7 @@ package com.oltpbenchmark.benchmarks.tpcc;
 
 import tech.ydb.jdbc.YdbConnection;
 
+import tech.ydb.core.UnexpectedResultException;
 import tech.ydb.table.SessionRetryContext;
 import tech.ydb.table.TableClient;
 import tech.ydb.table.values.ListType;
@@ -874,8 +875,8 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
                     ydbConnHelper.retryCtx.supplyStatus(session -> session.executeBulkUpsert(path, bulkData));
 
                 future.join().expectSuccess(String.format("bulk upsert problem, table: %s", tableName));
-            } catch (Exception e) {
-                LOG.error(String.format("Error executing bulk upsert, table: %s, exception: %s", tableName, e.getMessage()));
+            } catch (UnexpectedResultException e) {
+                LOG.debug(String.format("Error executing bulk upsert, table: %s, exception: %s", tableName, e.getMessage()));
                 throw new RuntimeException(e);
             }
         });
@@ -886,7 +887,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
             try {
                 statement.executeBatch();
                 statement.clearBatch();
-            } catch (Exception ex) {
+            } catch (SQLException ex) {
                 throw new RuntimeException(ex);
             }
         });
@@ -896,7 +897,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
         executeWithRetry(() -> {
             try {
                 statement.execute();
-            } catch (Exception ex) {
+            } catch (SQLException ex) {
                 throw new RuntimeException(ex);
             }
         });
@@ -906,7 +907,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
         executeWithRetry(() -> {
             try {
                 statement.executeUpdate();
-            } catch (Exception ex) {
+            } catch (SQLException ex) {
                 throw new RuntimeException(ex);
             }
         });
