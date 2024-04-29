@@ -17,7 +17,6 @@
 
 package com.oltpbenchmark;
 
-import com.oltpbenchmark.ResultStats;
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.TransactionType;
 import com.oltpbenchmark.api.Worker;
