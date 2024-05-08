@@ -29,6 +29,8 @@ import java.lang.reflect.Field;
 import java.util.*;
 import java.util.Map.Entry;
 
+import java.util.concurrent.locks.ReentrantLock;
+
 /**
  * A very nice and simple generic Histogram
  *
@@ -37,6 +39,8 @@ import java.util.Map.Entry;
  */
 public class Histogram<X extends Comparable<X>> implements JSONSerializable {
     private static final Logger LOG = LoggerFactory.getLogger(Histogram.class);
+
+    private final ReentrantLock lock = new ReentrantLock();
 
     private static final String MARKER = "*";
     private static final Integer MAX_CHARS = 80;
@@ -110,7 +114,8 @@ public class Histogram<X extends Comparable<X>> implements JSONSerializable {
     public void setKeepZeroEntries(boolean flag) {
         // When this option is disabled, we need to remove all of the zeroed entries
         if (!flag && this.keep_zero_entries) {
-            synchronized (this) {
+            try {
+                lock.lock();
                 Iterator<X> it = this.histogram.keySet().iterator();
                 int ctr = 0;
                 while (it.hasNext()) {
@@ -124,6 +129,8 @@ public class Histogram<X extends Comparable<X>> implements JSONSerializable {
                 if (ctr > 0) {
                     LOG.debug("Removed {} zero entries from histogram", ctr);
                 }
+            } finally {
+                lock.unlock();
             }
         }
         this.keep_zero_entries = flag;
@@ -173,7 +180,7 @@ public class Histogram<X extends Comparable<X>> implements JSONSerializable {
         }
 
         // New Min/Max Counts
-        // The reason we have to loop through and check every time is that our 
+        // The reason we have to loop through and check every time is that our
         // value may be the current min/max count and thus it may or may not still
         // be after the count is changed
         this.max_count = 0;

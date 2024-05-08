@@ -20,7 +20,6 @@ package com.oltpbenchmark;
 import com.oltpbenchmark.api.BenchmarkModule;
 import com.oltpbenchmark.api.TransactionType;
 import com.oltpbenchmark.api.Worker;
-import com.oltpbenchmark.types.State;
 import com.oltpbenchmark.util.StringUtil;
 import org.apache.commons.collections4.map.ListOrderedMap;
 import org.slf4j.Logger;
@@ -31,35 +30,37 @@ import java.util.*;
 public class ThreadBench implements Thread.UncaughtExceptionHandler {
     private static final Logger LOG = LoggerFactory.getLogger(ThreadBench.class);
 
-    private final BenchmarkState testState;
+    private final BenchmarkState benchmarkState;
     private final List<? extends Worker<? extends BenchmarkModule>> workers;
     private final ArrayList<Thread> workerThreads;
-    private final List<WorkloadConfiguration> workConfs;
+    private final WorkloadConfiguration workConf;
     private final ResultStats resultStats;
     private final int intervalMonitor;
     private final Boolean useRealThreads;
 
     private ThreadBench(List<? extends Worker<? extends BenchmarkModule>> workers,
-            List<WorkloadConfiguration> workConfs, int intervalMonitoring, Boolean useRealThreads) {
+            WorkloadConfiguration workConf, int intervalMonitoring, Boolean useRealThreads) {
         this.workers = workers;
-        this.workConfs = workConfs;
+        this.workConf = workConf;
         this.workerThreads = new ArrayList<>(workers.size());
         this.intervalMonitor = intervalMonitoring;
-        this.testState = new BenchmarkState(workers.size() + 1);
+        this.benchmarkState = new BenchmarkState(workers.size() + 1, workConf);
         this.resultStats = new ResultStats();
         this.useRealThreads = useRealThreads;
+
+        for (Worker<?> worker : workers) {
+            worker.setBenchmarkState(this.benchmarkState);
+        }
     }
 
-    public static Results runRateLimitedBenchmark(List<Worker<? extends BenchmarkModule>> workers,
-            List<WorkloadConfiguration> workConfs, int intervalMonitoring, Boolean useRealThreads) {
-        ThreadBench bench = new ThreadBench(workers, workConfs, intervalMonitoring, useRealThreads);
-        return bench.runRateLimitedMultiPhase();
+    public static Results runBenchmark(List<Worker<? extends BenchmarkModule>> workers,
+            WorkloadConfiguration workConf, int intervalMonitoring, Boolean useRealThreads) {
+        ThreadBench bench = new ThreadBench(workers, workConf, intervalMonitoring, useRealThreads);
+        return bench.runBenchmark();
     }
 
     private void createWorkerThreads() {
-
         for (Worker<?> worker : workers) {
-            worker.initializeState();
             Thread thread;
             if (useRealThreads) {
                 thread = new Thread(worker);
@@ -72,14 +73,7 @@ public class ThreadBench implements Thread.UncaughtExceptionHandler {
         }
     }
 
-    private void interruptWorkers() {
-        for (Worker<?> worker : workers) {
-            worker.cancelStatement();
-        }
-    }
-
     private long finalizeWorkers(ArrayList<Thread> workerThreads) throws InterruptedException {
-
         long requests = 0;
 
         new WatchDogThread().start();
@@ -108,55 +102,15 @@ public class ThreadBench implements Thread.UncaughtExceptionHandler {
         return requests;
     }
 
-    private Results runRateLimitedMultiPhase() {
-        List<WorkloadState> workStates = new ArrayList<>();
-
-        for (WorkloadConfiguration workState : this.workConfs) {
-            workState.initializeState(testState);
-            workStates.add(workState.getWorkloadState());
-        }
-
+    private Results runBenchmark() {
         this.createWorkerThreads();
 
-        // long measureStart = start;
+        Phase phase = this.workConf.getPhase();
+        LOG.info(phase.currentPhaseString());
 
-        long start = System.nanoTime();
-        long warmupStart = System.nanoTime();
-        long warmup = warmupStart;
-        long measureEnd = -1;
-        // used to determine the longest sleep interval
-        int lowestRate = Integer.MAX_VALUE;
-
-        Phase phase = null;
-
-        for (WorkloadState workState : workStates) {
-            workState.switchToNextPhase();
-            phase = workState.getCurrentPhase();
-            LOG.info(phase.currentPhaseString());
-            if (phase.getRate() < lowestRate) {
-                lowestRate = phase.getRate();
-            }
-        }
-
-        // Change testState to cold query if execution is serial, since we don't
-        // have a warm-up phase for serial execution but execute a cold and a
-        // measured query in sequence.
-        if (phase != null && phase.isLatencyRun()) {
-            synchronized (testState) {
-                testState.startColdQuery();
-            }
-        }
-
-        long intervalNs = getInterval(lowestRate, phase.getArrival());
-
-        long nextInterval = start + intervalNs;
-        int nextToAdd = 1;
-        int rateFactor;
-
-        boolean resetQueues = true;
-
-        long delta = phase.getTime() * 1000000000L;
-        boolean lastEntry = false;
+        final long start = System.nanoTime();
+        final long warmupStart = start;
+        final long warmupEnd = warmupStart + phase.getWarmupTime() * 1000000000L;
 
         // Initialize the Monitor
         if (this.intervalMonitor > 0) {
@@ -164,143 +118,36 @@ public class ThreadBench implements Thread.UncaughtExceptionHandler {
         }
 
         // Allow workers to start work.
-        testState.blockForStart();
+        benchmarkState.blockForStart();
 
-        // Main Loop
-        while (true) {
-            // posting new work... and resetting the queue in case we have new
-            // portion of the workload...
-
-            for (WorkloadState workState : workStates) {
-                if (workState.getCurrentPhase() != null) {
-                    rateFactor = workState.getCurrentPhase().getRate() / lowestRate;
-                } else {
-                    rateFactor = 1;
-                }
-                workState.addToQueue(nextToAdd * rateFactor, resetQueues);
-            }
-            resetQueues = false;
-
-            // Wait until the interval expires, which may be "don't wait"
-            long now = System.nanoTime();
-            if (phase != null) {
-                warmup = warmupStart + phase.getWarmupTime() * 1000000000L;
-            }
-            long diff = nextInterval - now;
-            while (diff > 0) { // this can wake early: sleep multiple times to avoid that
-                long ms = diff / 1000000;
-                diff = diff % 1000000;
+        final long warmupS = (warmupEnd - warmupStart) / 1000000000;
+        if (warmupS > 0) {
+            LOG.info("{} :: Warming up for {}s", StringUtil.bold("WARMUP"), warmupS);
+            while (System.nanoTime() < warmupEnd) {
                 try {
-                    Thread.sleep(ms, (int) diff);
+                    Thread.sleep(1000);
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
-                now = System.nanoTime();
-                diff = nextInterval - now;
-            }
-
-            boolean phaseComplete = false;
-            if (phase != null) {
-                if (phase.isLatencyRun())
-                // Latency runs (serial run through each query) have their own
-                // state to mark completion
-                {
-                    phaseComplete = testState.getState() == State.LATENCY_COMPLETE;
-                } else {
-                    phaseComplete = testState.getState() == State.MEASURE
-                            && (start + delta <= now);
-                }
-            }
-
-            // Go to next phase if this one is complete or enter if error was thrown
-            boolean errorThrown = testState.getState() == State.ERROR;
-            if ((phaseComplete || errorThrown) && !lastEntry) {
-                // enters here after each phase of the test
-                // reset the queues so that the new phase is not affected by the
-                // queue of the previous one
-                resetQueues = true;
-
-                // Fetch a new Phase
-                synchronized (testState) {
-                    if (phase.isLatencyRun()) {
-                        testState.ackLatencyComplete();
-                    }
-                    for (WorkloadState workState : workStates) {
-                        synchronized (workState) {
-                            workState.switchToNextPhase();
-                            lowestRate = Integer.MAX_VALUE;
-                            phase = workState.getCurrentPhase();
-                            interruptWorkers();
-                            if (phase == null && !lastEntry) {
-                                // Last phase
-                                lastEntry = true;
-                                testState.startCoolDown();
-                                measureEnd = now;
-                                LOG.info("{} :: Waiting for all terminals to finish ..", StringUtil.bold("TERMINATE"));
-                            } else if (phase != null) {
-                                // Reset serial execution parameters.
-                                if (phase.isLatencyRun()) {
-                                    phase.resetSerial();
-                                    testState.startColdQuery();
-                                }
-                                LOG.info(phase.currentPhaseString());
-                                if (phase.getRate() < lowestRate) {
-                                    lowestRate = phase.getRate();
-                                }
-                            }
-                        }
-                    }
-                    if (phase != null) {
-                        // update frequency in which we check according to
-                        // wakeup
-                        // speed
-                        // intervalNs = (long) (1000000000. / (double)
-                        // lowestRate + 0.5);
-                        delta += phase.getTime() * 1000000000L;
-                    }
-                }
-            }
-
-            // Compute the next interval
-            // and how many messages to deliver
-            if (phase != null) {
-                intervalNs = 0;
-                nextToAdd = 0;
-                do {
-                    intervalNs += getInterval(lowestRate, phase.getArrival());
-                    nextToAdd++;
-                } while ((-diff) > intervalNs && !lastEntry);
-                nextInterval += intervalNs;
-            }
-
-            // Update the test state appropriately
-            State state = testState.getState();
-            if (state == State.WARMUP && now >= warmup) {
-                synchronized (testState) {
-                    if (phase != null && phase.isLatencyRun()) {
-                        testState.startColdQuery();
-                    } else {
-                        testState.startMeasure();
-                    }
-                    interruptWorkers();
-                }
-                start = now;
-                LOG.info("{} :: Warmup complete, starting measurements.", StringUtil.bold("MEASURE"));
-                // measureEnd = measureStart + measureSeconds * 1000000000L;
-
-                // For serial executions, we want to do every query exactly
-                // once, so we need to restart in case some of the queries
-                // began during the warmup phase.
-                // If we're not doing serial executions, this function has no
-                // effect and is thus safe to call regardless.
-                phase.resetSerial();
-            } else if (state == State.EXIT) {
-                // All threads have noticed the done, meaning all measured
-                // requests have definitely finished.
-                // Time to quit.
-                break;
             }
         }
+
+        final long stopAt = System.nanoTime() + phase.getTime() * 1000000000L;
+        benchmarkState.startMeasure();
+
+        LOG.info("{} :: Warmup complete, starting measurements.", StringUtil.bold("MEASURE"));
+
+        // Main Loop
+        while (benchmarkState.isWorkingOrMeasuring() && System.nanoTime() < stopAt) {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        final long measureEnd = System.nanoTime();
+        benchmarkState.stopWorkers();
 
         try {
             long requests = finalizeWorkers(this.workerThreads);
@@ -313,9 +160,7 @@ public class ThreadBench implements Thread.UncaughtExceptionHandler {
 
             // Compute transaction histogram
             Set<TransactionType> txnTypes = new HashSet<>();
-            for (WorkloadConfiguration workConf : workConfs) {
-                txnTypes.addAll(workConf.getTransTypes());
-            }
+            txnTypes.addAll(workConf.getTransTypes());
             txnTypes.remove(TransactionType.INVALID);
 
             results.getUnknown().putAll(txnTypes, 0);
@@ -340,15 +185,6 @@ public class ThreadBench implements Thread.UncaughtExceptionHandler {
         }
     }
 
-    private long getInterval(int lowestRate, Phase.Arrival arrival) {
-        // TODO Auto-generated method stub
-        if (arrival == Phase.Arrival.POISSON) {
-            return (long) ((-Math.log(1 - Math.random()) / lowestRate) * 1000000000.);
-        } else {
-            return (long) (1000000000. / (double) lowestRate + 0.5);
-        }
-    }
-
     @Override
     public void uncaughtException(Thread t, Throwable e) {
         // Here we handle the case in which one of our worker threads died
@@ -357,19 +193,8 @@ public class ThreadBench implements Thread.UncaughtExceptionHandler {
         // phases that were left in the test and signal error state.
         // The rest of the workflow to finish the experiment remains the same,
         // and partial metrics will be reported (i.e., until failure happened).
-        synchronized (testState) {
-            for (WorkloadConfiguration workConf : this.workConfs) {
-                synchronized (workConf.getWorkloadState()) {
-                    WorkloadState workState = workConf.getWorkloadState();
-                    Phase phase = workState.getCurrentPhase();
-                    while (phase != null) {
-                        workState.switchToNextPhase();
-                        phase = workState.getCurrentPhase();
-                    }
-                }
-            }
-            testState.signalError();
-        }
+
+        benchmarkState.signalError();
     }
 
     private class WatchDogThread extends Thread {
@@ -423,16 +248,13 @@ public class ThreadBench implements Thread.UncaughtExceptionHandler {
 
                 // Compute the last throughput
                 long measuredRequests = 0;
-                synchronized (testState) {
-                    for (Worker<?> w : workers) {
-                        measuredRequests += w.getAndResetIntervalRequests();
-                    }
+                for (Worker<?> w : workers) {
+                    measuredRequests += w.getAndResetIntervalRequests();
                 }
                 double seconds = this.intervalMonitor / 1000d;
                 double tps = (double) measuredRequests / seconds;
-                LOG.info("Throughput: {} txn/sec, {} threads", tps, Thread.activeCount());
+                LOG.info("Throughput: {} txn/sec", tps);
             }
         }
     }
-
 }

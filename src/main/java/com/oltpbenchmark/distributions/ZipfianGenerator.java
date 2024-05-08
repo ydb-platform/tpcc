@@ -22,6 +22,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Random;
 
+import java.util.concurrent.locks.ReentrantLock;
+
 /**
  * A generator of a zipfian distribution. It produces a sequence of items, such that some items are more popular than others, according
  * to a zipfian distribution. When you construct an instance of this class, you specify the number of items in the set to draw from, either
@@ -46,6 +48,8 @@ public class ZipfianGenerator extends IntegerGenerator {
     private static final Logger LOG = LoggerFactory.getLogger(ZipfianGenerator.class);
 
     final Random rng;
+
+    private final ReentrantLock lock = new ReentrantLock();
 
     /**
      * Number of items.
@@ -237,7 +241,8 @@ public class ZipfianGenerator extends IntegerGenerator {
         if (itemcount != countforzeta) {
 
             //have to recompute zetan and eta, since they depend on itemcount
-            synchronized (this) {
+            try {
+                lock.lock();
                 if (itemcount > countforzeta) {
                     //System.err.println("WARNING: Incrementally recomputing Zipfian distribtion. (itemcount="+itemcount+" countforzeta="+countforzeta+")");
 
@@ -257,6 +262,8 @@ public class ZipfianGenerator extends IntegerGenerator {
                     zetan = zeta(itemcount, theta);
                     eta = (1 - Math.pow(2.0 / items, 1 - theta)) / (1 - zeta2theta / zetan);
                 }
+            } finally {
+                lock.unlock();
             }
         }
 

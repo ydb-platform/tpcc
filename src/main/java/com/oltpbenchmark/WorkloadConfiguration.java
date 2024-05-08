@@ -24,12 +24,11 @@ import com.oltpbenchmark.util.ThreadUtil;
 import org.apache.commons.configuration2.XMLConfiguration;
 
 import java.sql.Connection;
-import java.util.ArrayList;
 import java.util.List;
 
 public class WorkloadConfiguration {
 
-    private final List<Phase> phases = new ArrayList<>();
+    private Phase phase = null;
     private DatabaseType databaseType;
     private String benchmarkName;
     private String url;
@@ -59,7 +58,6 @@ public class WorkloadConfiguration {
     private int loaderThreads = ThreadUtil.availableProcessors();
     private int warmupTime = 0;
     private XMLConfiguration xmlConfig = null;
-    private WorkloadState workloadState;
     private TransactionTypes transTypes = null;
     private int isolationMode = Connection.TRANSACTION_SERIALIZABLE;
     private String dataDir = null;
@@ -77,10 +75,6 @@ public class WorkloadConfiguration {
 
     public void setBenchmarkName(String benchmarkName) {
         this.benchmarkName = benchmarkName;
-    }
-
-    public WorkloadState getWorkloadState() {
-        return workloadState;
     }
 
     public DatabaseType getDatabaseType() {
@@ -188,19 +182,9 @@ public class WorkloadConfiguration {
         this.newConnectionPerTxn = newConnectionPerTxn;
     }
 
-    /**
-     * Initiate a new benchmark and workload state
-     */
-    public void initializeState(BenchmarkState benchmarkState) {
-        this.workloadState = new WorkloadState(benchmarkState, phases, terminals);
+    public void setPhase(int id, int time, int warmup, List<Double> weights, boolean timed, int active_terminals, Phase.Arrival arrival) {
+        this.phase = new Phase(benchmarkName, id, time, warmup, weights, timed, active_terminals, arrival);
     }
-
-    public void addPhase(int id, int time, int warmup, int rate, List<Double> weights, boolean rateLimited, boolean disabled, boolean serial, boolean timed, int active_terminals, Phase.Arrival arrival) {
-        phases.add(new Phase(benchmarkName, id, time, warmup, rate, weights, rateLimited, disabled, serial, timed, active_terminals, arrival));
-    }
-
-
-
 
     /**
      * The number of loader threads that the framework is allowed to use.
@@ -262,15 +246,6 @@ public class WorkloadConfiguration {
      */
     public void setScaleFactor(double scaleFactor) {
         this.scaleFactor = scaleFactor;
-    }
-
-    /**
-     * Return the number of phases specified in the config file
-     *
-     * @return
-     */
-    public int getNumberOfPhases() {
-        return phases.size();
     }
 
     /**
@@ -346,8 +321,8 @@ public class WorkloadConfiguration {
         this.transTypes = transTypes;
     }
 
-    public List<Phase> getPhases() {
-        return phases;
+    public Phase getPhase() {
+        return this.phase;
     }
 
     public XMLConfiguration getXmlConfig() {
@@ -396,7 +371,7 @@ public class WorkloadConfiguration {
     @Override
     public String toString() {
         return "WorkloadConfiguration{" +
-               "phases=" + phases +
+               "phase=" + phase +
                ", databaseType=" + databaseType +
                ", benchmarkName='" + benchmarkName + '\'' +
                ", url='" + url + '\'' +
@@ -409,7 +384,6 @@ public class WorkloadConfiguration {
                ", selectivity=" + selectivity +
                ", terminals=" + terminals +
                ", loaderThreads=" + loaderThreads +
-               ", workloadState=" + workloadState +
                ", transTypes=" + transTypes +
                ", isolationMode=" + isolationMode +
                ", dataDir='" + dataDir + '\'' +

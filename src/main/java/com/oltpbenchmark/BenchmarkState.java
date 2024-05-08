@@ -17,32 +17,46 @@
 
 package com.oltpbenchmark;
 
-import com.oltpbenchmark.types.State;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.CountDownLatch;
 
+// shared between controlling ThreadBench thread and worker threads
 public final class BenchmarkState {
+    public enum State {
+        WARMUP, MEASURE, DONE, EXIT, ERROR
+    }
 
     private static final Logger LOG = LoggerFactory.getLogger(BenchmarkState.class);
 
+    private final WorkloadConfiguration workloadConf;
     private final long testStartNs;
     private final CountDownLatch startBarrier;
     private final AtomicInteger notDoneCount;
-    private volatile State state = State.WARMUP;
+
+    private final AtomicReference<State> state = new AtomicReference<>(State.WARMUP);
 
     /**
      * @param numThreads number of threads involved in the test: including the
      *                   master thread.
      */
-    public BenchmarkState(int numThreads) {
-        startBarrier = new CountDownLatch(numThreads);
-        notDoneCount = new AtomicInteger(numThreads);
+    public BenchmarkState(int numThreads, WorkloadConfiguration workloadConf) {
+        this.workloadConf = workloadConf;
+        this.startBarrier = new CountDownLatch(numThreads);
+        this.notDoneCount = new AtomicInteger(numThreads);
 
+        this.testStartNs = System.nanoTime();
+    }
 
-        testStartNs = System.nanoTime();
+    public SubmittedProcedure fetchWork() {
+        if (getState() == State.EXIT || getState() == State.DONE) {
+            return null;
+        }
+
+        return new SubmittedProcedure(workloadConf.getPhase().chooseTransaction());
     }
 
     // Protected by this
@@ -52,9 +66,7 @@ public final class BenchmarkState {
     }
 
     public State getState() {
-        synchronized (this) {
-            return state;
-        }
+        return state.get();
     }
 
     /**
@@ -62,8 +74,6 @@ public final class BenchmarkState {
      * entered.
      */
     public void blockForStart() {
-
-
         startBarrier.countDown();
         try {
             startBarrier.await();
@@ -73,54 +83,45 @@ public final class BenchmarkState {
     }
 
     public void startMeasure() {
-        state = State.MEASURE;
-    }
-
-    public void startColdQuery() {
-        state = State.COLD_QUERY;
-    }
-
-    public void startHotQuery() {
-        state = State.MEASURE;
-    }
-
-    public void signalLatencyComplete() {
-        state = State.LATENCY_COMPLETE;
-    }
-
-    public void ackLatencyComplete() {
-        state = State.MEASURE;
+        state.set(State.MEASURE);
     }
 
     public void signalError() {
-        // A thread died, decrement the count and set error state
         notDoneCount.decrementAndGet();
-        state = State.ERROR;
+        state.set(State.ERROR);
     }
 
-    public void startCoolDown() {
-        state = State.DONE;
-
-        // The master thread must also signal that it is done
-        signalDone();
+    public boolean isError() {
+        return getState() == State.ERROR;
     }
 
-    /**
-     * Notify that this thread has entered the done state.
-     */
-    public int signalDone() {
+    public boolean isWorkingOrMeasuring() {
+        return getState() == State.WARMUP || getState() == State.MEASURE;
+    }
 
-        int current = notDoneCount.decrementAndGet();
+    public boolean isMeasuring() {
+        return getState() == State.MEASURE;
+    }
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug(String.format("%d workers are not done. Waiting until they finish", current));
+    public void workerFinished() {
+        notDoneCount.decrementAndGet();
+    }
+
+    public void stopWorkers() {
+        int waitCount = notDoneCount.decrementAndGet();
+        if (waitCount > 0) {
+            LOG.debug(String.format("%d workers are not done. Waiting until they finish", waitCount));
         }
-        if (current == 0) {
-            // We are the last thread to notice that we are done: wake any
-            // blocked workers
-            this.state = State.EXIT;
-        }
-        return current;
-    }
 
+        if (getState() != State.ERROR) {
+            // might be a minor race here, but not a problem
+            state.set(State.DONE);
+        }
+
+        while (notDoneCount.get() > 0) {
+            Thread.yield();
+        }
+
+        LOG.debug("Workers stopped");
+    }
 }
