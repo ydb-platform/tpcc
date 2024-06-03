@@ -31,11 +31,17 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Random;
 
 public class NewOrder extends TPCCProcedure {
 
     private static final Logger LOG = LoggerFactory.getLogger(NewOrder.class);
+
+    private final int MIN_ITEMS = 5;
+    private final int MAX_ITEMS = 15;
 
     public final SQLStmt stmtGetCustSQL = new SQLStmt(
     """
@@ -80,6 +86,9 @@ public class NewOrder extends TPCCProcedure {
          VALUES (?, ?, ?, ?, ?, ?, ?)
     """.formatted(TPCCConstants.TABLENAME_OPENORDER));
 
+    public final SQLStmt[] stmtGetItemSQLArr;
+    public final SQLStmt[] stmtGetStockSQLArr;
+
     public final SQLStmt stmtGetItemSQL = new SQLStmt(
     """
         SELECT I_PRICE, I_NAME , I_DATA
@@ -96,12 +105,65 @@ public class NewOrder extends TPCCProcedure {
            AND S_W_ID = ?
     """.formatted(TPCCConstants.TABLENAME_STOCK));
 
+    public NewOrder() {
+        // We believe that TPC-C standard clearly states in 2.4.2.2 that we should
+        // query the `item` and `stock` tables for each item in the order.
+        // Also, this is demonstrated in their reference implementation of TPC-C NewOrder in A.1.
+        // But we see that most major TPC-C implementations do not follow this rule,
+        // in particular CockroachDB, YugaByteDB and TiDB.
+        //
+        // Note, that besides batching there is another perculiar thing behind this:
+        // small number of transactions contain bad item id, which is expected to cause a rollback.
+        // Without batching we would do some "good" requests to get price and stock info, but with batching
+        // we will fail early.
+
+        stmtGetItemSQLArr = new SQLStmt[MAX_ITEMS];
+        stmtGetStockSQLArr = new SQLStmt[MAX_ITEMS];
+
+        // SQL statement for selecting an item from the `ITEM` table looks like:
+        //
+        // SELECT I_PRICE, I_NAME , I_DATA
+        // FROM ITEM
+        // WHERE I_ID in (?, ?, ... ?);
+        //
+        // Number of `?` in the `IN` clause is between 5 (MIN_ITEMS) and 15 (MAX_ITEMS).
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("SELECT I_ID, I_PRICE, I_NAME , I_DATA FROM %s WHERE I_ID IN (",
+                                TPCCConstants.TABLENAME_ITEM));
+        for (int i = 1; i <= MAX_ITEMS; ++i) {
+            if (i == 1) {
+                sb.append("?");
+            } else {
+                sb.append(", ?");
+            }
+            stmtGetItemSQLArr[i - 1] = new SQLStmt(sb.toString() + ")");
+        }
+
+        // similar to the previous case, but for the `STOCK` table
+
+        sb = new StringBuilder();
+        sb.append(
+          String.format("SELECT S_W_ID, S_I_ID, S_QUANTITY, S_DATA, S_YTD, S_REMOTE_CNT, S_DIST_01, " +
+                        "S_DIST_02, S_DIST_03, S_DIST_04, S_DIST_05, S_DIST_06, S_DIST_07, S_DIST_08, " +
+                        "S_DIST_09, S_DIST_10 FROM %s WHERE (S_W_ID, S_I_ID) IN (",
+                        TPCCConstants.TABLENAME_STOCK));
+        for (int i = 1; i <= MAX_ITEMS; ++i) {
+          if (i == 1) {
+            sb.append("(?, ?)");
+          } else {
+            sb.append(", (?, ?)");
+          }
+          stmtGetStockSQLArr[i - 1] = new SQLStmt(sb.toString() + ")");
+        }
+    }
+
     public void run(Connection conn, Random gen, int terminalWarehouseID, int numWarehouses, int terminalDistrictLowerID, int terminalDistrictUpperID, TPCCWorker w) throws SQLException {
 
         int districtID = TPCCUtil.randomNumber(terminalDistrictLowerID, terminalDistrictUpperID, gen);
         int customerID = TPCCUtil.getCustomerID(gen);
 
-        int numItems = TPCCUtil.randomNumber(5, 15, gen);
+        int numItems = TPCCUtil.randomNumber(MIN_ITEMS, MAX_ITEMS, gen);
         int[] itemIDs = new int[numItems];
         int[] supplierWarehouseIDs = new int[numItems];
         int[] orderQuantities = new int[numItems];
@@ -126,12 +188,132 @@ public class NewOrder extends TPCCProcedure {
             itemIDs[numItems - 1] = TPCCConfig.INVALID_ITEM_ID;
         }
 
-        newOrderTransaction(terminalWarehouseID, districtID, customerID, numItems, allLocal, itemIDs, supplierWarehouseIDs, orderQuantities, conn);
-
+        if (!w.getBenchmark().getWorkloadConfiguration().getStrictMode()) {
+            newOrderTransaction(
+                terminalWarehouseID,
+                districtID,
+                customerID,
+                numItems,
+                allLocal,
+                itemIDs,
+                supplierWarehouseIDs,
+                orderQuantities,
+                conn);
+        } else {
+            newOrderTransactionStrict(
+                terminalWarehouseID,
+                districtID,
+                customerID,
+                numItems,
+                allLocal,
+                itemIDs,
+                supplierWarehouseIDs,
+                orderQuantities,
+                conn);
+        }
     }
 
 
     private void newOrderTransaction(int w_id, int d_id, int c_id,
+                                     int o_ol_cnt, int o_all_local, int[] itemIDs,
+                                     int[] supplierWarehouseIDs, int[] orderQuantities, Connection conn) throws SQLException {
+
+        String odreLinesql = "" +
+            "declare $values as List<Struct<p1:Int32,p2:Int32,p3:Int32,p4:Int32,p5:Int32," +
+            "p6:Timestamp,p7:Double,p8:Int32,p9:Double,p10:Utf8>>;\n" +
+            "$mapper = ($row) -> (AsStruct(" +
+            "$row.p1 as OL_W_ID, $row.p2 as OL_D_ID, $row.p3 as OL_O_ID, $row.p4 as OL_NUMBER, $row.p5 as OL_I_ID, " +
+            "$row.p6 as OL_DELIVERY_D, $row.p7 as OL_AMOUNT, $row.p8 as OL_SUPPLY_W_ID, $row.p9 as OL_QUANTITY, " +
+            "$row.p10 as OL_DIST_INFO));\n" +
+            "upsert into " + TPCCConstants.TABLENAME_ORDERLINE + " select * from as_table(ListMap($values, $mapper));";
+
+        String stockSql = "" +
+            "declare $values as List<Struct<p1:Int32,p2:Int32,p3:Int32,p4:Double,p5:Int32,p6:Int32>>;\n" +
+            "$mapper = ($row) -> (AsStruct(" +
+            "$row.p1 as S_W_ID, $row.p2 as S_I_ID, $row.p3 as S_QUANTITY, " +
+            "$row.p4 as S_YTD, $row.p5 as S_ORDER_CNT, " +
+            "$row.p6 as S_REMOTE_CNT));\n" +
+            "upsert into " + TPCCConstants.TABLENAME_STOCK + " select * from as_table(ListMap($values, $mapper));";
+
+        // we intentionally prepare statement before the first data transaction:
+        // see https://github.com/ydb-platform/ydb-jdbc-driver/issues/32
+        try (PreparedStatement stmtUpdateStock = conn.prepareStatement(stockSql);
+             PreparedStatement stmtInsertOrderLine = conn.prepareStatement(odreLinesql)) {
+
+            getCustomer(conn, w_id, d_id, c_id);
+
+            getWarehouse(conn, w_id);
+
+            int d_next_o_id = getDistrict(conn, w_id, d_id);
+
+            updateDistrict(conn, w_id, d_id, d_next_o_id + 1);
+
+            insertOpenOrder(conn, w_id, d_id, c_id, o_ol_cnt, o_all_local, d_next_o_id);
+
+            insertNewOrder(conn, w_id, d_id, d_next_o_id);
+
+            // this may occasionally error and that's ok!
+            Map<Integer, Double> itemPrices = getPrices(conn, itemIDs);
+
+            Map<Map.Entry<Integer,Integer>, Stock> stocks = getStocks(conn, supplierWarehouseIDs, itemIDs);
+
+            for (int ol_number = 1; ol_number <= o_ol_cnt; ol_number++) {
+                int ol_supply_w_id = supplierWarehouseIDs[ol_number - 1];
+                int ol_i_id = itemIDs[ol_number - 1];
+                int ol_quantity = orderQuantities[ol_number - 1];
+
+                double ol_amount = ol_quantity * itemPrices.get(ol_i_id);
+
+                Stock s = stocks.get(Map.entry(ol_supply_w_id, ol_i_id));
+                String ol_dist_info = getDistInfo(d_id, s);
+                if (s.s_quantity - ol_quantity >= 10) {
+                    s.s_quantity -= ol_quantity;
+                } else {
+                    s.s_quantity += -ol_quantity + 91;
+                }
+
+                int idx = 1;
+                stmtInsertOrderLine.setInt(idx++, w_id);
+                stmtInsertOrderLine.setInt(idx++, d_id);
+                stmtInsertOrderLine.setInt(idx++, d_next_o_id);
+                stmtInsertOrderLine.setInt(idx++, ol_number);
+                stmtInsertOrderLine.setInt(idx++, ol_i_id);
+                stmtInsertOrderLine.setTimestamp(idx++, new Timestamp(System.currentTimeMillis()));
+                stmtInsertOrderLine.setDouble(idx++, ol_amount);
+                stmtInsertOrderLine.setInt(idx++, ol_supply_w_id);
+                stmtInsertOrderLine.setDouble(idx++, ol_quantity);
+                stmtInsertOrderLine.setString(idx, ol_dist_info);
+                stmtInsertOrderLine.addBatch();
+
+                int s_remote_cnt_increment;
+
+                if (ol_supply_w_id == w_id) {
+                    s_remote_cnt_increment = 0;
+                } else {
+                    s_remote_cnt_increment = 1;
+                }
+
+                idx = 1;
+                stmtUpdateStock.setInt(idx++, s.s_w_id);
+                stmtUpdateStock.setInt(idx++, s.s_i_id);
+                stmtUpdateStock.setInt(idx++, s.s_quantity);
+                stmtUpdateStock.setDouble(idx++, s.s_ytd + ol_quantity);
+                stmtUpdateStock.setInt(idx++, s.s_order_cnt + 1);
+                stmtUpdateStock.setInt(idx++, s.s_remote_cnt + s_remote_cnt_increment);
+                stmtUpdateStock.addBatch();
+            }
+
+            stmtInsertOrderLine.executeBatch();
+            stmtInsertOrderLine.clearBatch();
+
+            stmtUpdateStock.executeBatch();
+            stmtUpdateStock.clearBatch();
+
+        }
+
+    }
+
+    private void newOrderTransactionStrict(int w_id, int d_id, int c_id,
                                      int o_ol_cnt, int o_all_local, int[] itemIDs,
                                      int[] supplierWarehouseIDs, int[] orderQuantities, Connection conn) throws SQLException {
 
@@ -240,6 +422,54 @@ public class NewOrder extends TPCCProcedure {
         };
     }
 
+    Map<Map.Entry<Integer,Integer>, Stock> getStocks(Connection conn, int[] supplierWarehouseIDs, int[] itemIDs) throws SQLException {
+        HashSet<Map.Entry<Integer,Integer>> itemSet = new HashSet<>();
+        for (int i = 0; i < supplierWarehouseIDs.length; i++) {
+            itemSet.add(Map.entry(supplierWarehouseIDs[i], itemIDs[i]));
+        }
+
+        Map<Map.Entry<Integer,Integer>, Stock> stocks = new HashMap<>();
+        SQLStmt stmtGetStockSQL = stmtGetStockSQLArr[supplierWarehouseIDs.length - 1];
+        try (PreparedStatement stmtGetStock = this.getPreparedStatement(conn, stmtGetStockSQL)) {
+            int k = 1;
+            for (int i = 0; i < supplierWarehouseIDs.length; i++) {
+                stmtGetStock.setInt(k++, supplierWarehouseIDs[i]);
+                stmtGetStock.setInt(k++, itemIDs[i]);
+            }
+
+            try (ResultSet rs = stmtGetStock.executeQuery()) {
+                for (int i = 0; i < itemSet.size(); i++) {
+                    if (!rs.next()) {
+                        String allIDs = "";
+                        for (int j = 0; j < itemIDs.length; j++) {
+                            allIDs += "(" + supplierWarehouseIDs[j] + "," + itemIDs[j] + ") ";
+                        }
+
+                        throw new RuntimeException("S_W_ID,S_I_ID in " + allIDs + " not found!");
+                    }
+                    Stock s = new Stock();
+                    s.s_w_id = rs.getInt("S_W_ID");
+                    s.s_i_id = rs.getInt("S_I_ID");
+                    s.s_quantity = rs.getInt("S_QUANTITY");
+                    s.s_dist_01 = rs.getString("S_DIST_01");
+                    s.s_dist_02 = rs.getString("S_DIST_02");
+                    s.s_dist_03 = rs.getString("S_DIST_03");
+                    s.s_dist_04 = rs.getString("S_DIST_04");
+                    s.s_dist_05 = rs.getString("S_DIST_05");
+                    s.s_dist_06 = rs.getString("S_DIST_06");
+                    s.s_dist_07 = rs.getString("S_DIST_07");
+                    s.s_dist_08 = rs.getString("S_DIST_08");
+                    s.s_dist_09 = rs.getString("S_DIST_09");
+                    s.s_dist_10 = rs.getString("S_DIST_10");
+
+                    stocks.put(Map.entry(s.s_w_id, s.s_i_id), s);
+                }
+            }
+        }
+
+        return stocks;
+    }
+
     private Stock getStock(Connection conn, int ol_supply_w_id, int ol_i_id, int ol_quantity) throws SQLException {
         try (PreparedStatement stmtGetStock = this.getPreparedStatement(conn, stmtGetStockSQL)) {
             stmtGetStock.setInt(1, ol_i_id);
@@ -272,6 +502,41 @@ public class NewOrder extends TPCCProcedure {
                 return s;
             }
         }
+    }
+
+    Map<Integer, Double> getPrices(Connection conn, int[] itemIDs) throws SQLException {
+        HashSet<Integer> itemSet = new HashSet<>();
+        for (int i = 0; i < itemIDs.length; i++) {
+            itemSet.add(itemIDs[i]);
+        }
+
+        Map<Integer, Double> prices = new HashMap<>();
+        try (PreparedStatement stmtGetItem = this.getPreparedStatement(conn, stmtGetItemSQLArr[itemIDs.length - 1])) {
+            int k = 1;
+            for (int i = 0; i < itemIDs.length; i++) {
+                stmtGetItem.setInt(k++, itemIDs[i]);
+            }
+
+            try (ResultSet rs = stmtGetItem.executeQuery()) {
+                for (int i = 0; i < itemSet.size(); i++) {
+                    if (!rs.next()) {
+                        for (int j = 0; j < itemIDs.length; j++) {
+                            if (itemIDs[j] == TPCCConfig.INVALID_ITEM_ID) {
+                                throw new UserAbortException("EXPECTED new order rollback: I_ID=" + itemIDs[j] + " not found!");
+                            }
+                        }
+                        String allIDs = "";
+                        for (int j = 0; j < itemIDs.length; j++) {
+                            allIDs += itemIDs[j] + " ";
+                        }
+                        throw new RuntimeException("I_ID in " + allIDs + " not found!");
+                    }
+                    prices.put(rs.getInt("I_ID"), rs.getDouble("I_PRICE"));
+                }
+            }
+        }
+
+        return prices;
     }
 
     private double getItemPrice(Connection conn, int ol_i_id) throws SQLException {

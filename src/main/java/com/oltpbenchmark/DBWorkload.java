@@ -213,6 +213,12 @@ public class DBWorkload {
             // Nothing to do here !
         }
 
+        if (xmlConfig.containsKey("strict")) {
+            // be as much strict TPC-C as possible, otherwise closer to
+            // CockroachDB, YugabyteDB and TiDB implementations
+            wrkld.setStrictMode(xmlConfig.getBoolean("strict"));
+        }
+
         // ----------------------------------------------------------------
         // CREATE BENCHMARK MODULE
         // ----------------------------------------------------------------

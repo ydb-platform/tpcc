@@ -36,6 +36,7 @@ public class WorkloadConfiguration {
     private String password;
     private String driverClass;
     private int batchSize;
+    private Boolean strictMode = false;
 
     // there is no reason to sleep more than 3-4 seconds in total, so we
     // choose proper slotMillis and ceiling according maxRetries
@@ -123,6 +124,14 @@ public class WorkloadConfiguration {
 
     public void setBatchSize(int batchSize) {
         this.batchSize = batchSize;
+    }
+
+    public Boolean getStrictMode() {
+        return strictMode;
+    }
+
+    public void setStrictMode(Boolean strictMode) {
+        this.strictMode = strictMode;
     }
 
     public int getMaxRetries() {
