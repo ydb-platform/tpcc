@@ -38,16 +38,14 @@ public class WorkloadConfiguration {
     private int batchSize;
     private Boolean strictMode = false;
 
-    // there is no reason to sleep more than 3-4 seconds in total, so we
-    // choose proper slotMillis and ceiling according maxRetries
-    private int maxRetries = 3;
+    private int maxRetries = 5;
 
-    // 500 + 1000 + 2000 = 3500 ms - seems OK
-    private long backoffSlotMillis = 500;
-    private int backoffCeiling = 6;
+    // 64 + 128 + 256 + 512 + 1024 = ~ 2000 ms (within 2-4 seconds with randomization)
+    private long backoffSlotMillis = 64;
+    private int backoffCeiling = 5;
 
-    // 50 + 100 + 200 = 350 ms
-    private long fastBackoffSlotMillis = 50;
+    // 4 + 8 + 16 + 32 + 64 = 124 ms (within 124-248 ms with randomization)
+    private long fastBackoffSlotMillis = 4;
     private int fastBackoffCeiling = 10; // doesn't matter with just 3 retries
 
     private int randomSeed = -1;
