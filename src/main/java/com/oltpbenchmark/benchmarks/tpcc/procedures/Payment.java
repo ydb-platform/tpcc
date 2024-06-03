@@ -37,35 +37,29 @@ public class Payment extends TPCCProcedure {
 
     private static final Logger LOG = LoggerFactory.getLogger(Payment.class);
 
-    public SQLStmt payUpdateWhseSQL = new SQLStmt(
+    public SQLStmt payUpdateGetWhseSQL = new SQLStmt(
     """
         UPDATE %s
            SET W_YTD = W_YTD + ?
-         WHERE W_ID = ?
-    """.formatted(TPCCConstants.TABLENAME_WAREHOUSE));
+         WHERE W_ID = ?;
 
-    public SQLStmt payGetWhseSQL = new SQLStmt(
-    """
         SELECT W_STREET_1, W_STREET_2, W_CITY, W_STATE, W_ZIP, W_NAME
-          FROM %s
-         WHERE W_ID = ?
-    """.formatted(TPCCConstants.TABLENAME_WAREHOUSE));
+         FROM %s
+        WHERE W_ID = ?;
+    """.formatted(TPCCConstants.TABLENAME_WAREHOUSE, TPCCConstants.TABLENAME_WAREHOUSE));
 
-    public SQLStmt payUpdateDistSQL = new SQLStmt(
+    public SQLStmt payUpdateGetDistSQL = new SQLStmt(
     """
         UPDATE %s
            SET D_YTD = D_YTD + ?
          WHERE D_W_ID = ?
-           AND D_ID = ?
-    """.formatted(TPCCConstants.TABLENAME_DISTRICT));
+           AND D_ID = ?;
 
-    public SQLStmt payGetDistSQL = new SQLStmt(
-    """
         SELECT D_STREET_1, D_STREET_2, D_CITY, D_STATE, D_ZIP, D_NAME
-          FROM %s
+           FROM %s
          WHERE D_W_ID = ?
-           AND D_ID = ?
-    """.formatted(TPCCConstants.TABLENAME_DISTRICT));
+           AND D_ID = ?;
+    """.formatted(TPCCConstants.TABLENAME_DISTRICT, TPCCConstants.TABLENAME_DISTRICT));
 
     public SQLStmt payGetCustSQL = new SQLStmt(
     """
@@ -123,15 +117,10 @@ public class Payment extends TPCCProcedure {
     public void run(Connection conn, Random gen, int w_id, int numWarehouses, int terminalDistrictLowerID, int terminalDistrictUpperID, TPCCWorker worker) throws SQLException {
 
         int districtID = TPCCUtil.randomNumber(terminalDistrictLowerID, terminalDistrictUpperID, gen);
-
-        Warehouse w = getWarehouse(conn, w_id);
-        District d = getDistrict(conn, w_id, districtID);
-
         double paymentAmount = (double) (TPCCUtil.randomNumber(100, 500000, gen) / 100.0);
 
-        updateWarehouse(conn, w_id, paymentAmount);
-
-        updateDistrict(conn, w_id, districtID, paymentAmount);
+        Warehouse w = updateGetWarehouse(conn, w_id, paymentAmount);
+        District d = updateGetDistrict(conn, w_id, districtID, paymentAmount);
 
         int x = TPCCUtil.randomNumber(1, 100, gen);
 
@@ -261,38 +250,37 @@ public class Payment extends TPCCProcedure {
 
     }
 
-    private void updateWarehouse(Connection conn, int w_id, double paymentAmount) throws SQLException {
-        try (PreparedStatement payUpdateWhse = this.getPreparedStatement(conn, payUpdateWhseSQL)) {
-            payUpdateWhse.setDouble(1, paymentAmount);
-            payUpdateWhse.setInt(2, w_id);
-            // MySQL reports deadlocks due to lock upgrades:
-            // t1: read w_id = x; t2: update w_id = x; t1 update w_id = x
-            int result = payUpdateWhse.executeUpdate();
-            if (result == 0) {
-                throw new RuntimeException("W_ID=" + w_id + " not found!");
+    private Warehouse updateGetWarehouse(Connection conn, int w_id, double paymentAmount) throws SQLException {
+        try (PreparedStatement payUpdateGetWhse = this.getPreparedStatement(conn, payUpdateGetWhseSQL)) {
+            payUpdateGetWhse.setDouble(1, paymentAmount);
+            payUpdateGetWhse.setInt(2, w_id);
+            payUpdateGetWhse.setInt(3, w_id);
+
+            if (!payUpdateGetWhse.execute() && payUpdateGetWhse.getUpdateCount() != 1) {
+                throw new RuntimeException("W_ID=" + w_id + " update failed!");
             }
-        }
-    }
 
-    private Warehouse getWarehouse(Connection conn, int w_id) throws SQLException {
-        try (PreparedStatement payGetWhse = this.getPreparedStatement(conn, payGetWhseSQL)) {
-            payGetWhse.setInt(1, w_id);
-
-            try (ResultSet rs = payGetWhse.executeQuery()) {
-                if (!rs.next()) {
-                    throw new RuntimeException("W_ID=" + w_id + " not found!");
-                }
-
-                Warehouse w = new Warehouse();
-                w.w_street_1 = rs.getString("W_STREET_1");
-                w.w_street_2 = rs.getString("W_STREET_2");
-                w.w_city = rs.getString("W_CITY");
-                w.w_state = rs.getString("W_STATE");
-                w.w_zip = rs.getString("W_ZIP");
-                w.w_name = rs.getString("W_NAME");
-
-                return w;
+            if (!payUpdateGetWhse.getMoreResults()) {
+                throw new RuntimeException("W_ID=" + w_id + " not found! 1");
             }
+
+            ResultSet rs = payUpdateGetWhse.getResultSet();
+            if (rs == null) {
+                throw new RuntimeException("W_ID=" + w_id + " no result set!");
+            }
+            if (!rs.next()) {
+                throw new RuntimeException("W_ID=" + w_id + " empty result set!");
+            }
+
+            Warehouse w = new Warehouse();
+            w.w_street_1 = rs.getString("W_STREET_1");
+            w.w_street_2 = rs.getString("W_STREET_2");
+            w.w_city = rs.getString("W_CITY");
+            w.w_state = rs.getString("W_STATE");
+            w.w_zip = rs.getString("W_ZIP");
+            w.w_name = rs.getString("W_NAME");
+
+            return w;
         }
     }
 
@@ -316,40 +304,39 @@ public class Payment extends TPCCProcedure {
         return c;
     }
 
-    private void updateDistrict(Connection conn, int w_id, int districtID, double paymentAmount) throws SQLException {
-        try (PreparedStatement payUpdateDist = this.getPreparedStatement(conn, payUpdateDistSQL)) {
-            payUpdateDist.setDouble(1, paymentAmount);
-            payUpdateDist.setInt(2, w_id);
-            payUpdateDist.setInt(3, districtID);
+    private District updateGetDistrict(Connection conn, int w_id, int districtID, double paymentAmount) throws SQLException {
+        try (PreparedStatement payUpdateGetDist = this.getPreparedStatement(conn, payUpdateGetDistSQL)) {
+            payUpdateGetDist.setDouble(1, paymentAmount);
+            payUpdateGetDist.setInt(2, w_id);
+            payUpdateGetDist.setInt(3, districtID);
+            payUpdateGetDist.setInt(4, w_id);
+            payUpdateGetDist.setInt(5, districtID);
 
-            int result = payUpdateDist.executeUpdate();
+            if (!payUpdateGetDist.execute() && payUpdateGetDist.getUpdateCount() != 1) {
+                throw new RuntimeException("D_ID=" + districtID + " D_W_ID=" + w_id + " update failed!");
+            }
 
-            if (result == 0) {
+            if (!payUpdateGetDist.getMoreResults()) {
                 throw new RuntimeException("D_ID=" + districtID + " D_W_ID=" + w_id + " not found!");
             }
-        }
-    }
 
-    private District getDistrict(Connection conn, int w_id, int districtID) throws SQLException {
-        try (PreparedStatement payGetDist = this.getPreparedStatement(conn, payGetDistSQL)) {
-            payGetDist.setInt(1, w_id);
-            payGetDist.setInt(2, districtID);
-
-            try (ResultSet rs = payGetDist.executeQuery()) {
-                if (!rs.next()) {
-                    throw new RuntimeException("D_ID=" + districtID + " D_W_ID=" + w_id + " not found!");
-                }
-
-                District d = new District();
-                d.d_street_1 = rs.getString("D_STREET_1");
-                d.d_street_2 = rs.getString("D_STREET_2");
-                d.d_city = rs.getString("D_CITY");
-                d.d_state = rs.getString("D_STATE");
-                d.d_zip = rs.getString("D_ZIP");
-                d.d_name = rs.getString("D_NAME");
-
-                return d;
+            ResultSet rs = payUpdateGetDist.getResultSet();
+            if (rs == null) {
+                throw new RuntimeException("D_ID=" + districtID + " D_W_ID=" + w_id + " no result set!");
             }
+            if (!rs.next()) {
+                throw new RuntimeException("D_ID=" + districtID + " D_W_ID=" + w_id + " empty result set!");
+            }
+
+            District d = new District();
+            d.d_street_1 = rs.getString("D_STREET_1");
+            d.d_street_2 = rs.getString("D_STREET_2");
+            d.d_city = rs.getString("D_CITY");
+            d.d_state = rs.getString("D_STATE");
+            d.d_zip = rs.getString("D_ZIP");
+            d.d_name = rs.getString("D_NAME");
+
+            return d;
         }
     }
 
