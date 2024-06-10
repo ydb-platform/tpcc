@@ -518,7 +518,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
     }
 
     private long backoffTimeMillisInternal(int retryNumber, long backoffSlotMillis, int backoffCeiling) {
-        int slots = 1 << Math.min(retryNumber, backoffCeiling);
+        int slots = 1 << Math.min(retryNumber - 1, backoffCeiling);
         long delay = backoffSlotMillis * slots;
         return delay + ThreadLocalRandom.current().nextLong(delay);
     }
