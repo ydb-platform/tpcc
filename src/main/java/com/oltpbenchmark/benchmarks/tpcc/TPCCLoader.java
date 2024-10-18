@@ -21,8 +21,6 @@ package com.oltpbenchmark.benchmarks.tpcc;
 import com.oltpbenchmark.api.Loader;
 import com.oltpbenchmark.api.LoaderThread;
 import com.oltpbenchmark.benchmarks.tpcc.pojo.*;
-import com.oltpbenchmark.catalog.Table;
-import com.oltpbenchmark.util.SQLUtil;
 import tech.ydb.jdbc.YdbConnection;
 import tech.ydb.table.SessionRetryContext;
 import tech.ydb.table.TableClient;
@@ -71,8 +69,8 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
             }
         }
 
-        String getDatabase() {
-            return this.ydbConn.getCtx().getDatabase();
+        String getPrefixPath() {
+            return this.ydbConn.getCtx().getPrefixPath();
         }
     }
 
@@ -864,7 +862,7 @@ public class TPCCLoader extends Loader<TPCCBenchmark> {
         }
 
         ListValue bulkData = ListType.of(structType).newValue(batch);
-        String path = String.format("%s/%s", ydbConnHelper.getDatabase(), tableName);
+        String path = String.format("%s/%s", ydbConnHelper.getPrefixPath(), tableName);
         batch.clear();
 
         // not all errors are retried by SDK, for example CLIENT_DEADLINE_EXPIRED.
