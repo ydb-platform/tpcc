@@ -28,10 +28,10 @@ import com.oltpbenchmark.benchmarks.tpcc.pojo.Warehouse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class Payment extends TPCCProcedure {
 
@@ -115,6 +115,10 @@ public class Payment extends TPCCProcedure {
     """.formatted(TPCCConstants.TABLENAME_CUSTOMER));
 
     public void run(Connection conn, Random gen, int w_id, int numWarehouses, int terminalDistrictLowerID, int terminalDistrictUpperID, TPCCWorker worker) throws SQLException {
+        // Randomly trace one of thousand transactions
+        if (ThreadLocalRandom.current().nextInt(1000) == 0) {
+            tech.ydb.jdbc.YdbTracer.current().markToPrint("payment");
+        }
 
         int districtID = TPCCUtil.randomNumber(terminalDistrictLowerID, terminalDistrictUpperID, gen);
         double paymentAmount = (double) (TPCCUtil.randomNumber(100, 500000, gen) / 100.0);

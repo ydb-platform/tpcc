@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class NewOrder extends TPCCProcedure {
 
@@ -159,6 +160,10 @@ public class NewOrder extends TPCCProcedure {
     }
 
     public void run(Connection conn, Random gen, int terminalWarehouseID, int numWarehouses, int terminalDistrictLowerID, int terminalDistrictUpperID, TPCCWorker w) throws SQLException {
+        // Randomly trace one of thousand transactions
+        if (ThreadLocalRandom.current().nextInt(1000) == 0) {
+            tech.ydb.jdbc.YdbTracer.current().markToPrint("new-order");
+        }
 
         int districtID = TPCCUtil.randomNumber(terminalDistrictLowerID, terminalDistrictUpperID, gen);
         int customerID = TPCCUtil.getCustomerID(gen);
