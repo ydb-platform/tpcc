@@ -45,7 +45,7 @@ Next, to build the benchbase-ydb package, execute the following command:
 
 ## How to run
 
-The simplest way is to use helper scripts from [benchhelpers](https://github.com/ydb-platform/benchhelpers/tpcc/ydb). You can find the full instruction [here](https://github.com/ydb-platform/benchhelpers/blob/main/tpcc/ydb/README.md).
+The simplest way is to use helper scripts from [benchhelpers](https://github.com/ydb-platform/benchhelpers/tree/main/tpcc/ydb). You can find the full instruction [here](https://github.com/ydb-platform/benchhelpers/blob/main/tpcc/ydb/README.md).
 
 [Here](https://github.com/ydb-platform/ydb-jdbc-driver/#authentication-modes) you can find description of the authentication. Usually you will either use anonymous authentication in case of self deployed YDB, or provide a service account key file using the `saFile=file:` jdbc url parameter in [tpcc_config_template.xml](https://github.com/ydb-platform/benchhelpers/blob/108cb4ca3efc89dee7866b4bb8fca1a59ad265a8/tpcc/ydb/tpcc_config_template.xml#L7), when run managed YDB.
 
