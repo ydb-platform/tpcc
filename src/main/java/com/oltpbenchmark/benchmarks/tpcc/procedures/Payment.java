@@ -41,25 +41,18 @@ public class Payment extends TPCCProcedure {
     """
         UPDATE %s
            SET W_YTD = W_YTD + ?
-         WHERE W_ID = ?;
-
-        SELECT W_STREET_1, W_STREET_2, W_CITY, W_STATE, W_ZIP, W_NAME
-         FROM %s
-        WHERE W_ID = ?;
-    """.formatted(TPCCConstants.TABLENAME_WAREHOUSE, TPCCConstants.TABLENAME_WAREHOUSE));
+         WHERE W_ID = ?
+        RETURNING  W_STREET_1, W_STREET_2, W_CITY, W_STATE, W_ZIP, W_NAME;
+    """.formatted(TPCCConstants.TABLENAME_WAREHOUSE));
 
     public SQLStmt payUpdateGetDistSQL = new SQLStmt(
     """
         UPDATE %s
            SET D_YTD = D_YTD + ?
          WHERE D_W_ID = ?
-           AND D_ID = ?;
-
-        SELECT D_STREET_1, D_STREET_2, D_CITY, D_STATE, D_ZIP, D_NAME
-           FROM %s
-         WHERE D_W_ID = ?
-           AND D_ID = ?;
-    """.formatted(TPCCConstants.TABLENAME_DISTRICT, TPCCConstants.TABLENAME_DISTRICT));
+           AND D_ID = ?
+        RETURNING D_STREET_1, D_STREET_2, D_CITY, D_STATE, D_ZIP, D_NAME;
+    """.formatted(TPCCConstants.TABLENAME_DISTRICT));
 
     public SQLStmt payGetCustSQL = new SQLStmt(
     """
@@ -258,14 +251,9 @@ public class Payment extends TPCCProcedure {
         try (PreparedStatement payUpdateGetWhse = this.getPreparedStatement(conn, payUpdateGetWhseSQL)) {
             payUpdateGetWhse.setDouble(1, paymentAmount);
             payUpdateGetWhse.setInt(2, w_id);
-            payUpdateGetWhse.setInt(3, w_id);
 
             if (!payUpdateGetWhse.execute() && payUpdateGetWhse.getUpdateCount() != 1) {
                 throw new RuntimeException("W_ID=" + w_id + " update failed!");
-            }
-
-            if (!payUpdateGetWhse.getMoreResults()) {
-                throw new RuntimeException("W_ID=" + w_id + " not found! 1");
             }
 
             ResultSet rs = payUpdateGetWhse.getResultSet();
@@ -313,15 +301,9 @@ public class Payment extends TPCCProcedure {
             payUpdateGetDist.setDouble(1, paymentAmount);
             payUpdateGetDist.setInt(2, w_id);
             payUpdateGetDist.setInt(3, districtID);
-            payUpdateGetDist.setInt(4, w_id);
-            payUpdateGetDist.setInt(5, districtID);
 
             if (!payUpdateGetDist.execute() && payUpdateGetDist.getUpdateCount() != 1) {
                 throw new RuntimeException("D_ID=" + districtID + " D_W_ID=" + w_id + " update failed!");
-            }
-
-            if (!payUpdateGetDist.getMoreResults()) {
-                throw new RuntimeException("D_ID=" + districtID + " D_W_ID=" + w_id + " not found!");
             }
 
             ResultSet rs = payUpdateGetDist.getResultSet();
