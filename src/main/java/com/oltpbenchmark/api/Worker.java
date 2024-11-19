@@ -261,7 +261,7 @@ public abstract class Worker<T extends BenchmarkModule> implements Runnable {
         // Additional delay to avoid starting all threads simultaneously
         final int warmup = configuration.getWarmupTime();
         if (warmup > 0) {
-            int maxDelayMs = (int)(1000 * warmup * 2 / 3);
+            int maxDelayMs = (int)(1000 * warmup * 1 / 3);
             int delayMs = ThreadLocalRandom.current().nextInt(maxDelayMs);
             LOG.debug("Worker {} will sleep for {} s before starting", id, (int)(delayMs / 1000));
             try {
