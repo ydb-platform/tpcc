@@ -109,9 +109,9 @@ public class Payment extends TPCCProcedure {
 
     public void run(Connection conn, Random gen, int w_id, int numWarehouses, int terminalDistrictLowerID, int terminalDistrictUpperID, TPCCWorker worker) throws SQLException {
         // Randomly trace one of thousand transactions
-        if (ThreadLocalRandom.current().nextInt(1000) == 0) {
-            tech.ydb.jdbc.YdbTracer.current().markToPrint("payment");
-        }
+        //if (ThreadLocalRandom.current().nextInt(1000) == 0) {
+        //    tech.ydb.jdbc.YdbTracer.current().markToPrint("payment");
+        //}
 
         int districtID = TPCCUtil.randomNumber(terminalDistrictLowerID, terminalDistrictUpperID, gen);
         double paymentAmount = (double) (TPCCUtil.randomNumber(100, 500000, gen) / 100.0);
