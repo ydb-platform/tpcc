@@ -100,7 +100,7 @@ public class Delivery extends TPCCProcedure {
             "declare $values as List<Struct<p1:Int,p2:Int32,p3:Int32,p4:Int32,p5:Timestamp>>;\n" +
             "$mapper = ($row) -> (AsStruct($row.p1 as OL_W_ID, $row.p2 as OL_D_ID, $row.p3 as OL_O_ID, " +
             "$row.p4 as OL_NUMBER, $row.p5 as OL_DELIVERY_D));\n" +
-            "upsert into " + TPCCConstants.TABLENAME_ORDERLINE + " select * from as_table(ListMap($values, $mapper));";
+            "UPSERT into " + TPCCConstants.TABLENAME_ORDERLINE + " select * from as_table(ListMap($values, $mapper));";
 
         // we intentionally prepare statement before the first data transaction:
         // see https://github.com/ydb-platform/ydb-jdbc-driver/issues/32
@@ -251,7 +251,7 @@ public class Delivery extends TPCCProcedure {
     }
 
     private void updateCarrierId(Connection conn, int w_id, int o_carrier_id, int d_id, int no_o_id) throws SQLException {
-        String sql = "upsert into "
+        String sql = "UPSERT into "
                 + TPCCConstants.TABLENAME_OPENORDER + "(O_CARRIER_ID, O_ID, O_D_ID, O_W_ID)"
                 + " values (?, ?, ?, ?);";
 
@@ -312,7 +312,7 @@ public class Delivery extends TPCCProcedure {
     }
 
     private void updateBalanceAndDelivery(Connection conn, int w_id, int d_id, Data data) throws SQLException {
-        String sql = "upsert into "
+        String sql = "UPSERT into "
                 + TPCCConstants.TABLENAME_CUSTOMER + "(C_W_ID, C_D_ID, C_ID, C_DELIVERY_CNT, C_BALANCE) "
                 + "values (?, ?, ?, ?, ?);";
 
