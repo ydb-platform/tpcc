@@ -82,7 +82,6 @@ public class NewOrder extends TPCCProcedure {
 
     public final SQLStmt stmtInsertOOrderSQL = new SQLStmt(
     """
-        -- test insert
         INSERT INTO %s
          (O_ID, O_D_ID, O_W_ID, O_C_ID, O_ENTRY_D, O_OL_CNT, O_ALL_LOCAL)
          VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -239,7 +238,7 @@ public class NewOrder extends TPCCProcedure {
             "$row.p1 as S_W_ID, $row.p2 as S_I_ID, $row.p3 as S_QUANTITY, " +
             "$row.p4 as S_YTD, $row.p5 as S_ORDER_CNT, " +
             "$row.p6 as S_REMOTE_CNT));\n" +
-            "UPSERT into " + TPCCConstants.TABLENAME_STOCK + " select * from as_table(ListMap($values, $mapper));";
+            "upsert into " + TPCCConstants.TABLENAME_STOCK + " select * from as_table(ListMap($values, $mapper));";
 
         // we intentionally prepare statement before the first data transaction:
         // see https://github.com/ydb-platform/ydb-jdbc-driver/issues/32
@@ -338,7 +337,7 @@ public class NewOrder extends TPCCProcedure {
             "$row.p1 as S_W_ID, $row.p2 as S_I_ID, $row.p3 as S_QUANTITY, " +
             "$row.p4 as S_YTD, $row.p5 as S_ORDER_CNT, " +
             "$row.p6 as S_REMOTE_CNT));\n" +
-            "UPSERT into " + TPCCConstants.TABLENAME_STOCK + " select * from as_table(ListMap($values, $mapper));";
+            "upsert into " + TPCCConstants.TABLENAME_STOCK + " select * from as_table(ListMap($values, $mapper));";
 
         // we intentionally prepare statement before the first data transaction:
         // see https://github.com/ydb-platform/ydb-jdbc-driver/issues/32
