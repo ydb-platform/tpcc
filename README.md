@@ -1,3 +1,10 @@
+YDB includes [TPC-C implementation](https://ydb.tech/docs/en/reference/ydb-cli/workload-tpcc?version=main) as part of its [CLI](https://ydb.tech/docs/en/reference/ydb-cli/).
+It follows the exact same logic as the BenchBase-based implementation but requires **orders of magnitude less RAM** on the client side.
+It also supports all available authentication schemes, features a built-in TUI, and offers a more polished user experience overall.
+
+**We strongly recommend using implementation provided with the CLI.**
+See the YDB CLI [installation guide](https://ydb.tech/docs/en/reference/ydb-cli/install?version=main) for setup instructions.
+
 # Overview
 
 This is a fork of [BenchBase](https://github.com/cmu-db/benchbase), with the following enhancements:
